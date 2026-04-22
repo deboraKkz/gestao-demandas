@@ -701,6 +701,87 @@ main {
   padding: 1rem 0.75rem;
 }
 
+.usuarios-table-wrapper {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.usuarios-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.usuarios-table thead th {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0,0,0,0.08);
+}
+
+.usuarios-row td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.usuarios-row:last-child td,
+.usuarios-edit-row:last-child td {
+  border-bottom: none;
+}
+
+.usuarios-row:hover td {
+  background: rgba(255,255,255,0.03);
+}
+
+.usuarios-row--inativo td {
+  opacity: 0.55;
+}
+
+.usuarios-row--inativo:hover td {
+  opacity: 0.75;
+}
+
+.usuarios-cell-nome {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.usuarios-cell-muted {
+  color: var(--text-muted);
+}
+
+.usuarios-acoes {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.badge-inativo {
+  font-size: 0.68rem;
+  background: rgba(148,163,184,0.1);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  padding: 1px 6px;
+  border-radius: 20px;
+}
+
+.usuarios-edit-row td {
+  padding: 1rem;
+  background: rgba(79, 70, 229, 0.04);
+  border-bottom: 1px solid var(--border-color);
+  border-top: 1px solid var(--primary-color);
+}
+
 .usuarios-pagination {
   display: flex;
   align-items: center;

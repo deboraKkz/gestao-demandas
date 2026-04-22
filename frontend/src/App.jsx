@@ -56,7 +56,7 @@ function Header({ users, currentUser, setCurrentUser, theme, setTheme }) {
           onChange={(e) => setCurrentUser(users.find(u => u.id === parseInt(e.target.value)))}
         >
           <option value="">Selecione um usuário...</option>
-          {users.map(u => (
+          {users.filter(u => u.ativo !== 0).map(u => (
             <option key={u.id} value={u.id}>
               {u.nome} ({u.role}{u.coordenadoria_nome ? ` - ${u.coordenadoria_nome}` : ''})
             </option>
