@@ -144,11 +144,11 @@ async function ensureDatabaseShape() {
         "UPDATE demandas SET concluded_at = COALESCE(concluded_at, created_at), pinned = false, pin_order = 0 WHERE status IN ('concluída', 'cancelada', 'suspensa')"
     );
 
-    const [ativoCol] = await db.query(`
+    const [usuariosAtivoCol] = await db.query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'ativo'
     `);
-    if (ativoCol.length === 0) {
+    if (usuariosAtivoCol.length === 0) {
         await db.query(`ALTER TABLE usuarios ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT TRUE`);
     }
 
