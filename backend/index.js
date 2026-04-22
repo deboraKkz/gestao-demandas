@@ -164,13 +164,60 @@ async function ensureDatabaseShape() {
 // --- AUTH ---
 app.get('/api/auth/users', async (req, res) => {
     try {
+        const { q, page, limit } = req.query;
+        const BASE_QUERY = `
+            FROM usuarios u
+            LEFT JOIN coordenadorias c ON u.coordenadoria_id = c.id
+            LEFT JOIN diretorias d ON c.diretoria_id = d.id
+        `;
+        const SELECT = `SELECT u.*, c.nome as coordenadoria_nome, d.id as diretoria_id, d.nome as diretoria_nome`;
+
+        // Sem paginação (mock login selector)
+        if (!page) {
+            const [rows] = await db.query(`${SELECT} ${BASE_QUERY} ORDER BY u.nome`);
+            return res.json(rows);
+        }
+
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.min(100, parseInt(limit) || 20);
+        const offset = (pageNum - 1) * limitNum;
+        const like = q ? `%${q}%` : '%';
+        const WHERE = q
+            ? `WHERE u.nome LIKE ? OR u.email LIKE ? OR u.matricula LIKE ?`
+            : '';
+        const params = q ? [like, like, like] : [];
+
+        const [[{ total }]] = await db.query(
+            `SELECT COUNT(*) AS total ${BASE_QUERY} ${WHERE}`, params
+        );
+        const [rows] = await db.query(
+            `${SELECT} ${BASE_QUERY} ${WHERE} ORDER BY u.nome LIMIT ? OFFSET ?`,
+            [...params, limitNum, offset]
+        );
+        res.json({ data: rows, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/auth/users/:id', async (req, res) => {
+    const { nome, email, matricula, role, coordenadoria_id } = req.body;
+    if (!nome?.trim() || !role) return res.status(400).json({ error: 'Nome e role são obrigatórios.' });
+    if (!['diretor', 'comum', 'admin'].includes(role)) return res.status(400).json({ error: 'Role inválida.' });
+    try {
+        const [result] = await db.query(
+            'UPDATE usuarios SET nome=?, email=?, matricula=?, role=?, coordenadoria_id=? WHERE id=?',
+            [nome.trim(), email?.trim() || null, matricula?.trim() || null, role, coordenadoria_id || null, req.params.id]
+        );
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
         const [rows] = await db.query(`
             SELECT u.*, c.nome as coordenadoria_nome, d.id as diretoria_id, d.nome as diretoria_nome
             FROM usuarios u
             LEFT JOIN coordenadorias c ON u.coordenadoria_id = c.id
             LEFT JOIN diretorias d ON c.diretoria_id = d.id
-        `);
-        res.json(rows);
+            WHERE u.id = ?
+        `, [req.params.id]);
+        res.json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
