@@ -34,13 +34,88 @@ async function ensureDatabaseShape() {
         await db.query('ALTER TABLE demandas ADD COLUMN concluded_at TIMESTAMP NULL DEFAULT NULL AFTER created_at');
     }
 
+    // Renomear demandas_aguarda_area → dependencias (idempotente)
+    const [daaTable] = await db.query(`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'demandas_aguarda_area'
+    `);
+    if (daaTable.length > 0) {
+        await db.query('RENAME TABLE demandas_aguarda_area TO dependencias');
+    }
+
+    // Garantir que a tabela dependencias existe (instalações frescas)
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS dependencias (
+            demanda_id INT NOT NULL,
+            coordenadoria_id INT NOT NULL,
+            detalhes TEXT NULL,
+            FOREIGN KEY (demanda_id) REFERENCES demandas(id) ON DELETE CASCADE,
+            FOREIGN KEY (coordenadoria_id) REFERENCES coordenadorias(id) ON DELETE CASCADE
+        )
+    `);
+
+    // Adicionar coluna detalhes se ainda não existir (pré-renomeação)
     const [detalhesCol] = await db.query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'demandas_aguarda_area' AND COLUMN_NAME = 'detalhes'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'detalhes'
     `);
     if (detalhesCol.length === 0) {
-        await db.query('ALTER TABLE demandas_aguarda_area ADD COLUMN detalhes TEXT NULL AFTER coordenadoria_id');
+        await db.query('ALTER TABLE dependencias ADD COLUMN detalhes TEXT NULL AFTER coordenadoria_id');
     }
+
+    // Trocar PK composta por surrogate key id
+    const [depIdCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'id'
+    `);
+    if (depIdCol.length === 0) {
+        await db.query(`ALTER TABLE dependencias DROP PRIMARY KEY, ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST`);
+    }
+
+    // status do ciclo de vida da dependência
+    const [depStatusCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'status'
+    `);
+    if (depStatusCol.length === 0) {
+        await db.query(`ALTER TABLE dependencias ADD COLUMN status ENUM('pendente','rejeitada','concluida') NOT NULL DEFAULT 'pendente'`);
+    }
+
+    // Data de cadastro da dependência
+    const [depCreatedAtCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'created_at'
+    `);
+    if (depCreatedAtCol.length === 0) {
+        await db.query(`ALTER TABLE dependencias ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+    }
+
+    const [depResolvidoEmCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'resolvido_em'
+    `);
+    if (depResolvidoEmCol.length === 0) {
+        await db.query(`ALTER TABLE dependencias ADD COLUMN resolvido_em TIMESTAMP NULL`);
+    }
+
+    const [depResolvidoPorCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'resolvido_por'
+    `);
+    if (depResolvidoPorCol.length === 0) {
+        await db.query(`ALTER TABLE dependencias ADD COLUMN resolvido_por INT NULL`);
+        try { await db.query(`ALTER TABLE dependencias ADD CONSTRAINT fk_dep_resolvido_por FOREIGN KEY (resolvido_por) REFERENCES usuarios(id) ON DELETE SET NULL`); } catch (_) {}
+    }
+
+    const [depFilhaIdCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'demanda_filha_id'
+    `);
+    if (depFilhaIdCol.length === 0) {
+        await db.query(`ALTER TABLE dependencias ADD COLUMN demanda_filha_id INT NULL`);
+        try { await db.query(`ALTER TABLE dependencias ADD CONSTRAINT fk_dep_filha FOREIGN KEY (demanda_filha_id) REFERENCES demandas(id) ON DELETE SET NULL`); } catch (_) {}
+    }
+
 
     const [canalOrigemCol] = await db.query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -167,6 +242,59 @@ async function ensureDatabaseShape() {
     if (matriculaCol.length === 0) {
         await db.query(`ALTER TABLE usuarios ADD COLUMN matricula VARCHAR(50) NULL AFTER email`);
     }
+
+    // Criar tabela de histórico de eventos
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS historico_eventos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            demanda_id INT NOT NULL,
+            tipo ENUM(
+                'criada','status_alterado','coordenadoria_alterada',
+                'priorizacao_aprovada','priorizacao_rejeitada',
+                'dependencia_cadastrada','dependencia_rejeitada','dependencia_concluida'
+            ) NOT NULL,
+            usuario_id INT NULL,
+            payload JSON NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (demanda_id) REFERENCES demandas(id) ON DELETE CASCADE,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+            INDEX idx_hist_demanda_data (demanda_id, created_at)
+        )
+    `);
+
+    // Migrar historico_priorizacoes → historico_eventos e dropar tabela antiga
+    const [histPrioTable] = await db.query(`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'historico_priorizacoes'
+    `);
+    if (histPrioTable.length > 0) {
+        await db.query(`
+            INSERT INTO historico_eventos (demanda_id, tipo, usuario_id, payload, created_at)
+            SELECT demanda_id,
+                   CASE decisao WHEN 'aprovado' THEN 'priorizacao_aprovada' ELSE 'priorizacao_rejeitada' END,
+                   diretor_id, NULL, data_decisao
+            FROM historico_priorizacoes
+        `);
+        await db.query('DROP TABLE historico_priorizacoes');
+    }
+
+    // Backfill evento 'criada' para demandas sem nenhum evento desse tipo
+    await db.query(`
+        INSERT INTO historico_eventos (demanda_id, tipo, usuario_id, created_at)
+        SELECT d.id, 'criada', d.criador_id, d.created_at
+        FROM demandas d
+        WHERE NOT EXISTS (
+            SELECT 1 FROM historico_eventos he
+            WHERE he.demanda_id = d.id AND he.tipo = 'criada'
+        )
+    `);
+}
+
+async function registrarEvento(conn, { demanda_id, tipo, usuario_id = null, payload = null }) {
+    await conn.query(
+        'INSERT INTO historico_eventos (demanda_id, tipo, usuario_id, payload) VALUES (?, ?, ?, ?)',
+        [demanda_id, tipo, usuario_id, payload ? JSON.stringify(payload) : null]
+    );
 }
 
 // --- AUTH ---
@@ -451,11 +579,11 @@ app.get('/api/demandas', async (req, res) => {
         let query = `
             SELECT d.*, c.nome as coordenadoria_nome, dir.id as diretoria_id, dir.nome as diretoria_nome,
                    u.nome as criador_nome, ur.nome as responsavel_nome, mb.nome as macro_backlog_nome,
-                   (SELECT COUNT(*) FROM demandas_aguarda_area daa WHERE daa.demanda_id = d.id) as tem_dependencia,
+                   (SELECT COUNT(*) FROM dependencias daa WHERE daa.demanda_id = d.id AND daa.status = 'pendente') as tem_dependencia,
                    (SELECT GROUP_CONCAT(c2.nome SEPARATOR ', ')
-                    FROM demandas_aguarda_area daa2
+                    FROM dependencias daa2
                     JOIN coordenadorias c2 ON daa2.coordenadoria_id = c2.id
-                    WHERE daa2.demanda_id = d.id) as aguarda_areas_nomes
+                    WHERE daa2.demanda_id = d.id AND daa2.status = 'pendente') as dependencias_nomes
             FROM demandas d
             LEFT JOIN coordenadorias c ON d.coordenadoria_id = c.id
             LEFT JOIN diretorias dir ON c.diretoria_id = dir.id
@@ -491,10 +619,11 @@ app.get('/api/demandas', async (req, res) => {
 app.post('/api/demandas', async (req, res) => {
     const {
         titulo, descricao, coordenadoria_id, macro_backlog_id, prioridade, status, criador_id,
-        aguarda_areas, prioridade_solicitada,
+        prioridade_solicitada,
         canal_origem, solicitante, setor_demandante, responsavel_id, prazo,
         dominio, previsao_entrega, justificativa_priorizacao
     } = req.body;
+    const deps = req.body.dependencias || req.body.aguarda_areas;
     try {
         const flag = !!prioridade_solicitada;
         const concludedAt = status === STATUS_CONCLUIDA ? new Date() : null;
@@ -517,14 +646,24 @@ app.post('/api/demandas', async (req, res) => {
         );
         const demandaId = result.insertId;
 
-        if (aguarda_areas && aguarda_areas.length > 0) {
-            for (const area of aguarda_areas) {
+        await registrarEvento(db, { demanda_id: demandaId, tipo: 'criada', usuario_id: criador_id || null });
+
+        if (deps && deps.length > 0) {
+            const [coordRows] = await db.query('SELECT id, nome FROM coordenadorias');
+            const coordMap = Object.fromEntries(coordRows.map(c => [c.id, c.nome]));
+            for (const area of deps) {
                 const areaId = typeof area === 'object' ? area.coordenadoria_id : area;
                 const detalhes = typeof area === 'object' ? area.detalhes || null : null;
-                await db.query(
-                    'INSERT INTO demandas_aguarda_area (demanda_id, coordenadoria_id, detalhes) VALUES (?, ?, ?)',
+                const [ins] = await db.query(
+                    'INSERT INTO dependencias (demanda_id, coordenadoria_id, detalhes) VALUES (?, ?, ?)',
                     [demandaId, areaId, detalhes]
                 );
+                await registrarEvento(db, {
+                    demanda_id: demandaId,
+                    tipo: 'dependencia_cadastrada',
+                    usuario_id: criador_id || null,
+                    payload: { dependencia_id: ins.insertId, coordenadoria_id: areaId, coordenadoria_nome: coordMap[areaId] || null }
+                });
             }
         }
 
@@ -551,11 +690,15 @@ app.put('/api/demandas/:id', async (req, res) => {
         titulo, descricao, coordenadoria_id, macro_backlog_id, prioridade,
         canal_origem, solicitante, setor_demandante, responsavel_id,
         prazo, dominio, previsao_entrega, justificativa_priorizacao,
-        aguarda_areas, solicitar_priorizacao
+        solicitar_priorizacao, usuario_id
     } = req.body;
+    const deps = req.body.dependencias || req.body.aguarda_areas;
     const demandaId = req.params.id;
     try {
         await db.query('START TRANSACTION');
+
+        // Capturar coordenadoria anterior para detectar mudança
+        const [[demandaAtual]] = await db.query('SELECT coordenadoria_id FROM demandas WHERE id = ?', [demandaId]);
 
         await db.query(
             `UPDATE demandas SET
@@ -571,15 +714,64 @@ app.put('/api/demandas/:id', async (req, res) => {
             ]
         );
 
-        if (Array.isArray(aguarda_areas)) {
-            await db.query('DELETE FROM demandas_aguarda_area WHERE demanda_id = ?', [demandaId]);
-            for (const area of aguarda_areas) {
-                const areaId = typeof area === 'object' ? area.coordenadoria_id : area;
-                const detalhes = typeof area === 'object' ? area.detalhes || null : null;
-                await db.query(
-                    'INSERT INTO demandas_aguarda_area (demanda_id, coordenadoria_id, detalhes) VALUES (?, ?, ?)',
-                    [demandaId, areaId, detalhes]
-                );
+        // Evento coordenadoria_alterada
+        const novaCoord = coordenadoria_id || null;
+        const velhaCoord = demandaAtual?.coordenadoria_id || null;
+        if (String(novaCoord) !== String(velhaCoord)) {
+            const [[{ de_nome }]] = await db.query('SELECT COALESCE(c.nome, ?) as de_nome FROM (SELECT 1) x LEFT JOIN coordenadorias c ON c.id = ?', ['N/A', velhaCoord]);
+            const [[{ para_nome }]] = await db.query('SELECT COALESCE(c.nome, ?) as para_nome FROM (SELECT 1) x LEFT JOIN coordenadorias c ON c.id = ?', ['N/A', novaCoord]);
+            await registrarEvento(db, {
+                demanda_id: demandaId,
+                tipo: 'coordenadoria_alterada',
+                usuario_id: usuario_id || null,
+                payload: { de_id: velhaCoord, de_nome, para_id: novaCoord, para_nome }
+            });
+        }
+
+        // Gerenciar dependências pendentes (diff — não toca nas resolvidas)
+        if (Array.isArray(deps)) {
+            const [coordRows] = await db.query('SELECT id, nome FROM coordenadorias');
+            const coordMap = Object.fromEntries(coordRows.map(c => [c.id, c.nome]));
+
+            const [currentPending] = await db.query(
+                'SELECT id, coordenadoria_id, detalhes FROM dependencias WHERE demanda_id = ? AND status = ?',
+                [demandaId, 'pendente']
+            );
+            const currentMap = Object.fromEntries(currentPending.map(r => [r.coordenadoria_id, r]));
+            const submittedIds = new Set(deps.map(d => typeof d === 'object' ? d.coordenadoria_id : d));
+
+            // Remover pendentes desmarcadas
+            for (const row of currentPending) {
+                if (!submittedIds.has(row.coordenadoria_id)) {
+                    await db.query('DELETE FROM dependencias WHERE id = ?', [row.id]);
+                }
+            }
+
+            for (const dep of deps) {
+                const areaId = typeof dep === 'object' ? dep.coordenadoria_id : dep;
+                const detalhes = typeof dep === 'object' ? dep.detalhes || null : null;
+                if (!currentMap[areaId]) {
+                    // Não recriar se já existe dep resolvida para a mesma coordenadoria
+                    const [[resolved]] = await db.query(
+                        'SELECT id FROM dependencias WHERE demanda_id = ? AND coordenadoria_id = ? AND status != ?',
+                        [demandaId, areaId, 'pendente']
+                    );
+                    if (!resolved) {
+                        const [ins] = await db.query(
+                            'INSERT INTO dependencias (demanda_id, coordenadoria_id, detalhes) VALUES (?, ?, ?)',
+                            [demandaId, areaId, detalhes]
+                        );
+                        await registrarEvento(db, {
+                            demanda_id: demandaId,
+                            tipo: 'dependencia_cadastrada',
+                            usuario_id: usuario_id || null,
+                            payload: { dependencia_id: ins.insertId, coordenadoria_id: areaId, coordenadoria_nome: coordMap[areaId] || null }
+                        });
+                    }
+                } else {
+                    // Atualizar detalhes da pendente existente
+                    await db.query('UPDATE dependencias SET detalhes = ? WHERE id = ?', [detalhes, currentMap[areaId].id]);
+                }
             }
         }
 
@@ -624,19 +816,60 @@ app.put('/api/demandas/:id/pin', async (req, res) => {
 });
 
 app.put('/api/demandas/:id/status', async (req, res) => {
+    const demandaId = req.params.id;
     try {
-        const { status } = req.body;
+        const { status, usuario_id } = req.body;
+        await db.query('START TRANSACTION');
+
+        const [[demandaAtual]] = await db.query('SELECT status FROM demandas WHERE id = ?', [demandaId]);
+        const statusAnterior = demandaAtual?.status;
+
         const isTerminal = ['concluída', 'cancelada', 'suspensa'].includes(status);
         if (isTerminal) {
             await db.query(
                 'UPDATE demandas SET status = ?, concluded_at = COALESCE(concluded_at, NOW()), pinned = false, pin_order = 0 WHERE id = ?',
-                [status, req.params.id]
+                [status, demandaId]
             );
         } else {
-            await db.query('UPDATE demandas SET status = ?, concluded_at = NULL WHERE id = ?', [status, req.params.id]);
+            await db.query('UPDATE demandas SET status = ?, concluded_at = NULL WHERE id = ?', [status, demandaId]);
         }
+
+        if (statusAnterior !== status) {
+            await registrarEvento(db, {
+                demanda_id: demandaId,
+                tipo: 'status_alterado',
+                usuario_id: usuario_id || null,
+                payload: { de: statusAnterior, para: status }
+            });
+        }
+
+        // Cascata: se concluída, fechar dependência vinculada na demanda-mãe
+        if (status === STATUS_CONCLUIDA) {
+            const [depVinculada] = await db.query(
+                `SELECT dep.id, dep.demanda_id as mae_id, dep.coordenadoria_id, c.nome as coordenadoria_nome
+                 FROM dependencias dep
+                 JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+                 WHERE dep.demanda_filha_id = ? AND dep.status = 'pendente'`,
+                [demandaId]
+            );
+            for (const dep of depVinculada) {
+                await db.query(
+                    `UPDATE dependencias SET status = 'concluida', resolvido_em = NOW(), demanda_filha_id = ? WHERE id = ?`,
+                    [demandaId, dep.id]
+                );
+                await registrarEvento(db, {
+                    demanda_id: dep.mae_id,
+                    tipo: 'dependencia_concluida',
+                    usuario_id: usuario_id || null,
+                    payload: { dependencia_id: dep.id, coordenadoria_id: dep.coordenadoria_id, coordenadoria_nome: dep.coordenadoria_nome, demanda_filha_id: parseInt(demandaId), via: 'cascade_filha' }
+                });
+            }
+        }
+
+        await db.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        await db.query('ROLLBACK');
         res.status(500).json({ error: err.message });
     }
 });
@@ -669,23 +902,29 @@ app.get('/api/demandas/:id', async (req, res) => {
 
         if (demandas.length === 0) return res.status(404).json({ error: 'Demanda não encontrada' });
 
+        // Retorna: pendentes + concluídas com demanda filha (rejeitadas e concluídas sem filha são omitidas)
         const [dependencias] = await db.query(`
-            SELECT daa.demanda_id, daa.coordenadoria_id, daa.detalhes, c.nome as coordenadoria_nome
-            FROM demandas_aguarda_area daa
-            JOIN coordenadorias c ON daa.coordenadoria_id = c.id
-            WHERE daa.demanda_id = ?
+            SELECT dep.id, dep.demanda_id, dep.coordenadoria_id, dep.detalhes, dep.status,
+                   dep.created_at, dep.demanda_filha_id,
+                   c.nome as coordenadoria_nome,
+                   df.titulo as demanda_filha_titulo, df.status as demanda_filha_status
+            FROM dependencias dep
+            JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+            LEFT JOIN demandas df ON dep.demanda_filha_id = df.id
+            WHERE dep.demanda_id = ?
+              AND (dep.status = 'pendente' OR (dep.status = 'concluida' AND dep.demanda_filha_id IS NOT NULL))
             ORDER BY c.nome
         `, [req.params.id]);
 
-        const [historico_priorizacoes] = await db.query(`
-            SELECT hp.*, u.nome as diretor_nome
-            FROM historico_priorizacoes hp
-            LEFT JOIN usuarios u ON hp.diretor_id = u.id
-            WHERE hp.demanda_id = ?
-            ORDER BY hp.data_decisao DESC
+        const [historico_eventos] = await db.query(`
+            SELECT he.*, u.nome as usuario_nome
+            FROM historico_eventos he
+            LEFT JOIN usuarios u ON he.usuario_id = u.id
+            WHERE he.demanda_id = ?
+            ORDER BY he.created_at DESC
         `, [req.params.id]);
 
-        res.json({ ...demandas[0], dependencias, historico_priorizacoes });
+        res.json({ ...demandas[0], dependencias, historico_eventos });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -727,10 +966,11 @@ app.post('/api/priorizacoes/:id/decisao', async (req, res) => {
         const updateParams = decisao === 'aprovado' ? [STATUS_CONCLUIDA, demandaId] : [demandaId];
         await db.query(qs, updateParams);
 
-        await db.query(
-            'INSERT INTO historico_priorizacoes (demanda_id, diretor_id, decisao) VALUES (?, ?, ?)',
-            [demandaId, diretor_id, decisao]
-        );
+        await registrarEvento(db, {
+            demanda_id: demandaId,
+            tipo: decisao === 'aprovado' ? 'priorizacao_aprovada' : 'priorizacao_rejeitada',
+            usuario_id: diretor_id || null
+        });
 
         await db.query('COMMIT');
         res.json({ success: true });
@@ -746,12 +986,14 @@ app.get('/api/dependencias', async (req, res) => {
         const [coordenadorias] = await db.query('SELECT * FROM coordenadorias');
 
         const [vinculos] = await db.query(`
-            SELECT daa.coordenadoria_id, d.id as demanda_id, d.titulo, d.prioridade, d.status, d.pinned,
-                   daa.detalhes, c2.nome as area_origem_nome
-            FROM demandas_aguarda_area daa
-            JOIN demandas d ON daa.demanda_id = d.id AND d.ativo = 1
+            SELECT dep.id as dependencia_id, dep.coordenadoria_id, dep.detalhes, dep.created_at,
+                   d.id as demanda_id, d.titulo, d.prioridade, d.status, d.pinned,
+                   c2.nome as area_origem_nome
+            FROM dependencias dep
+            JOIN demandas d ON dep.demanda_id = d.id AND d.ativo = 1
             LEFT JOIN coordenadorias c2 ON d.coordenadoria_id = c2.id
-            ORDER BY daa.coordenadoria_id
+            WHERE dep.status = 'pendente'
+            ORDER BY dep.coordenadoria_id
         `);
 
         const grouped = coordenadorias
@@ -771,13 +1013,172 @@ app.get('/api/dependencias', async (req, res) => {
 app.get('/api/demandas/:id/areas', async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT c.id, c.nome, daa.detalhes
-            FROM demandas_aguarda_area daa
-            JOIN coordenadorias c ON daa.coordenadoria_id = c.id
-            WHERE daa.demanda_id = ?
+            SELECT c.id, c.nome, dep.detalhes
+            FROM dependencias dep
+            JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+            WHERE dep.demanda_id = ? AND dep.status = 'pendente'
         `, [req.params.id]);
         res.json(rows);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Buscar dependência individual (usada pelo modo "filha" em NovaDemanda)
+app.get('/api/dependencias/:id', async (req, res) => {
+    try {
+        const [[dep]] = await db.query(`
+            SELECT dep.id, dep.demanda_id, dep.coordenadoria_id, dep.detalhes, dep.status,
+                   c.nome as coordenadoria_nome,
+                   d.id as mae_id, d.titulo as mae_titulo, d.prioridade as mae_prioridade, d.pinned as mae_pinned
+            FROM dependencias dep
+            JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+            JOIN demandas d ON dep.demanda_id = d.id
+            WHERE dep.id = ?
+        `, [req.params.id]);
+        if (!dep) return res.status(404).json({ error: 'Dependência não encontrada' });
+        res.json(dep);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/dependencias/:id/rejeitar', async (req, res) => {
+    const depId = req.params.id;
+    const { usuario_id } = req.body;
+    try {
+        const [[dep]] = await db.query(`
+            SELECT dep.*, c.nome as coordenadoria_nome
+            FROM dependencias dep
+            JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+            WHERE dep.id = ?
+        `, [depId]);
+        if (!dep) return res.status(404).json({ error: 'Dependência não encontrada' });
+        if (dep.status !== 'pendente') return res.status(409).json({ error: 'Dependência já resolvida' });
+
+        const [[usuario]] = await db.query('SELECT coordenadoria_id, role FROM usuarios WHERE id = ?', [usuario_id]);
+        if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado' });
+        if (usuario.role !== 'admin' && usuario.coordenadoria_id !== dep.coordenadoria_id) {
+            return res.status(403).json({ error: 'Sem permissão: usuário não pertence à coordenadoria dependida' });
+        }
+
+        await db.query('START TRANSACTION');
+        await db.query(
+            `UPDATE dependencias SET status = 'rejeitada', resolvido_em = NOW(), resolvido_por = ? WHERE id = ?`,
+            [usuario_id, depId]
+        );
+        await registrarEvento(db, {
+            demanda_id: dep.demanda_id,
+            tipo: 'dependencia_rejeitada',
+            usuario_id: usuario_id || null,
+            payload: { dependencia_id: dep.id, coordenadoria_id: dep.coordenadoria_id, coordenadoria_nome: dep.coordenadoria_nome }
+        });
+        await db.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await db.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/dependencias/:id/concluir', async (req, res) => {
+    const depId = req.params.id;
+    const { usuario_id } = req.body;
+    try {
+        const [[dep]] = await db.query(`
+            SELECT dep.*, c.nome as coordenadoria_nome
+            FROM dependencias dep
+            JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+            WHERE dep.id = ?
+        `, [depId]);
+        if (!dep) return res.status(404).json({ error: 'Dependência não encontrada' });
+        if (dep.status !== 'pendente') return res.status(409).json({ error: 'Dependência já resolvida' });
+
+        const [[usuario]] = await db.query('SELECT coordenadoria_id, role FROM usuarios WHERE id = ?', [usuario_id]);
+        if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado' });
+        if (usuario.role !== 'admin' && usuario.coordenadoria_id !== dep.coordenadoria_id) {
+            return res.status(403).json({ error: 'Sem permissão: usuário não pertence à coordenadoria dependida' });
+        }
+
+        await db.query('START TRANSACTION');
+        await db.query(
+            `UPDATE dependencias SET status = 'concluida', resolvido_em = NOW(), resolvido_por = ? WHERE id = ?`,
+            [usuario_id, depId]
+        );
+        await registrarEvento(db, {
+            demanda_id: dep.demanda_id,
+            tipo: 'dependencia_concluida',
+            usuario_id: usuario_id || null,
+            payload: { dependencia_id: dep.id, coordenadoria_id: dep.coordenadoria_id, coordenadoria_nome: dep.coordenadoria_nome, demanda_filha_id: dep.demanda_filha_id || null }
+        });
+        await db.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await db.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/dependencias/:id/demanda-filha', async (req, res) => {
+    const depId = req.params.id;
+    const {
+        titulo, descricao, canal_origem, solicitante, setor_demandante,
+        responsavel_id, prazo, dominio, previsao_entrega, macro_backlog_id, criador_id
+    } = req.body;
+    try {
+        const [[dep]] = await db.query(`
+            SELECT dep.*, c.nome as coordenadoria_nome,
+                   d.titulo as mae_titulo, d.prioridade as mae_prioridade, d.pinned as mae_pinned
+            FROM dependencias dep
+            JOIN coordenadorias c ON dep.coordenadoria_id = c.id
+            JOIN demandas d ON dep.demanda_id = d.id
+            WHERE dep.id = ?
+        `, [depId]);
+        if (!dep) return res.status(404).json({ error: 'Dependência não encontrada' });
+        if (dep.status !== 'pendente') return res.status(409).json({ error: 'Dependência já resolvida' });
+
+        const [[usuario]] = await db.query('SELECT coordenadoria_id, role FROM usuarios WHERE id = ?', [criador_id]);
+        if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado' });
+        if (usuario.role !== 'admin' && usuario.coordenadoria_id !== dep.coordenadoria_id) {
+            return res.status(403).json({ error: 'Sem permissão: usuário não pertence à coordenadoria dependida' });
+        }
+
+        await db.query('START TRANSACTION');
+
+        const [result] = await db.query(
+            `INSERT INTO demandas
+                (titulo, descricao, coordenadoria_id, macro_backlog_id, prioridade, status, criador_id,
+                 pinned, canal_origem, solicitante, setor_demandante, responsavel_id, prazo, dominio, previsao_entrega)
+             VALUES (?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                titulo || dep.mae_titulo, descricao || null,
+                dep.coordenadoria_id, macro_backlog_id || null,
+                dep.mae_prioridade, criador_id,
+                dep.mae_pinned ? 1 : 0,
+                canal_origem || null, solicitante || null, setor_demandante || null,
+                responsavel_id || null, prazo || null, dominio || null, previsao_entrega || null
+            ]
+        );
+        const filhaId = result.insertId;
+
+        await db.query(
+            `UPDATE dependencias SET status = 'concluida', demanda_filha_id = ?, resolvido_em = NOW(), resolvido_por = ? WHERE id = ?`,
+            [filhaId, criador_id, depId]
+        );
+
+        await registrarEvento(db, { demanda_id: filhaId, tipo: 'criada', usuario_id: criador_id || null });
+
+        await registrarEvento(db, {
+            demanda_id: dep.demanda_id,
+            tipo: 'dependencia_concluida',
+            usuario_id: criador_id || null,
+            payload: { dependencia_id: dep.id, coordenadoria_id: dep.coordenadoria_id, coordenadoria_nome: dep.coordenadoria_nome, demanda_filha_id: filhaId }
+        });
+
+        await db.query('COMMIT');
+        res.status(201).json({ demanda_filha_id: filhaId });
+    } catch (err) {
+        await db.query('ROLLBACK');
         res.status(500).json({ error: err.message });
     }
 });
