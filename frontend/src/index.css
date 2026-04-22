@@ -351,11 +351,13 @@ main {
 }
 
 .dep-pin-slot {
-  width: 20px;
+  width: 14px;
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
+  margin-left: -4px;
+  padding-top: 1px;
 }
 
 .demand-id-badge {
@@ -1378,22 +1380,24 @@ textarea.edit-input {
 
 .dep-row-info {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.35rem;
   flex: 1;
   min-width: 0;
 }
 
-.dep-row-titulo {
+.dep-row-content {
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-weight: 500;
-  font-size: 0.9rem;
-  overflow: hidden;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
 }
 
-.dep-row-titulo-text {
+.dep-row-titulo {
+  font-weight: 500;
+  font-size: 0.9rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
