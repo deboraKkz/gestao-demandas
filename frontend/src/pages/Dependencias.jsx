@@ -75,6 +75,7 @@ export default function Dependencias() {
                       )}
                     </div>
                     <div className="dep-row-badges">
+                      {d.pinned ? <span className="pin-icon" title="Fixada">📌</span> : null}
                       <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
                         {PRIORIDADE_LABEL[d.prioridade]?.label || d.prioridade}
                       </span>
