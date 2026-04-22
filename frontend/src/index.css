@@ -352,12 +352,12 @@ main {
 
 .dep-pin-slot {
   width: 14px;
+  height: 1.35rem;
   flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-start;
   margin-left: -4px;
-  padding-top: 1px;
 }
 
 .demand-id-badge {
