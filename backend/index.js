@@ -143,6 +143,22 @@ async function ensureDatabaseShape() {
     await db.query(
         "UPDATE demandas SET concluded_at = COALESCE(concluded_at, created_at), pinned = false, pin_order = 0 WHERE status IN ('concluída', 'cancelada', 'suspensa')"
     );
+
+    const [emailCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'email'
+    `);
+    if (emailCol.length === 0) {
+        await db.query(`ALTER TABLE usuarios ADD COLUMN email VARCHAR(255) NULL AFTER nome`);
+    }
+
+    const [matriculaCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'matricula'
+    `);
+    if (matriculaCol.length === 0) {
+        await db.query(`ALTER TABLE usuarios ADD COLUMN matricula VARCHAR(50) NULL AFTER email`);
+    }
 }
 
 // --- AUTH ---
@@ -161,13 +177,13 @@ app.get('/api/auth/users', async (req, res) => {
 });
 
 app.post('/api/auth/users', async (req, res) => {
-    const { nome, role, coordenadoria_id } = req.body;
+    const { nome, role, coordenadoria_id, email, matricula } = req.body;
     if (!nome?.trim() || !role) return res.status(400).json({ error: 'Nome e role são obrigatórios.' });
     if (!['diretor', 'comum', 'admin'].includes(role)) return res.status(400).json({ error: 'Role inválida.' });
     try {
         const [result] = await db.query(
-            'INSERT INTO usuarios (nome, role, coordenadoria_id) VALUES (?, ?, ?)',
-            [nome.trim(), role, coordenadoria_id || null]
+            'INSERT INTO usuarios (nome, email, matricula, role, coordenadoria_id) VALUES (?, ?, ?, ?, ?)',
+            [nome.trim(), email?.trim() || null, matricula?.trim() || null, role, coordenadoria_id || null]
         );
         const [rows] = await db.query(`
             SELECT u.*, c.nome as coordenadoria_nome, d.id as diretoria_id, d.nome as diretoria_nome
@@ -177,6 +193,18 @@ app.post('/api/auth/users', async (req, res) => {
             WHERE u.id = ?
         `, [result.insertId]);
         res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/diretorias/:id/coordenadorias', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT * FROM coordenadorias WHERE diretoria_id = ? ORDER BY nome',
+            [req.params.id]
+        );
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
