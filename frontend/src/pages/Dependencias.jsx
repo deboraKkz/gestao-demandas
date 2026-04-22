@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import PinIcon from '../components/PinIcon';
 
 const TRUNCATE_LEN = 90;
 function truncate(text) {
@@ -63,6 +64,7 @@ export default function Dependencias() {
                   <div key={d.demanda_id} className="dep-row">
                     <div className="dep-row-info">
                       <span className="dep-row-titulo">
+                        {d.pinned ? <PinIcon size={12} /> : null}
                         <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
                       </span>
                       {d.area_origem_nome && (
@@ -75,7 +77,6 @@ export default function Dependencias() {
                       )}
                     </div>
                     <div className="dep-row-badges">
-                      {d.pinned ? <span className="pin-icon" title="Fixada">📌</span> : null}
                       <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
                         {PRIORIDADE_LABEL[d.prioridade]?.label || d.prioridade}
                       </span>
