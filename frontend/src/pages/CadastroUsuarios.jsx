@@ -10,11 +10,9 @@ const ROLE_LABEL = { comum: 'Comum', diretor: 'Diretor', admin: 'Admin' };
 const LIMIT = 20;
 const EMPTY_FORM = { nome: '', email: '', matricula: '', role: 'comum', diretoria_id: '', coordenadoria_id: '' };
 
-// Formulário reutilizável (criação e edição)
 function UserForm({ form, setForm, coordenadorias, diretorias, saving, onSubmit, submitLabel, onCancel }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Ao trocar diretoria, limpa coordenadoria
     if (name === 'diretoria_id') {
       setForm(prev => ({ ...prev, diretoria_id: value, coordenadoria_id: '' }));
     } else {
@@ -74,17 +72,11 @@ function UserForm({ form, setForm, coordenadorias, diretorias, saving, onSubmit,
 
 export default function CadastroUsuarios() {
   const [diretorias, setDiretorias] = useState([]);
-
-  // Estado do formulário de criação
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
   const [createCoords, setCreateCoords] = useState([]);
-
-  // Estado do formulário de edição
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [editCoords, setEditCoords] = useState([]);
-
-  // Lista / busca / paginação
   const [usuarios, setUsuarios] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -93,48 +85,35 @@ export default function CadastroUsuarios() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [refetchKey, setRefetchKey] = useState(0);
   const [loading, setLoading] = useState(false);
-
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmInativar, setConfirmInativar] = useState(null);
 
-  // Dados estáticos
   useEffect(() => {
     api.get('/diretorias').then(r => setDiretorias(r.data)).catch(console.error);
   }, []);
 
-  // Coordenadorias do formulário de criação
   useEffect(() => {
     if (!createForm.diretoria_id) { setCreateCoords([]); return; }
     api.get(`/diretorias/${createForm.diretoria_id}/coordenadorias`).then(r => setCreateCoords(r.data)).catch(console.error);
   }, [createForm.diretoria_id]);
 
-  // Coordenadorias do formulário de edição
   useEffect(() => {
     if (!editForm.diretoria_id) { setEditCoords([]); return; }
     api.get(`/diretorias/${editForm.diretoria_id}/coordenadorias`).then(r => setEditCoords(r.data)).catch(console.error);
   }, [editForm.diretoria_id]);
 
-  // Debounce da busca — reseta página
   useEffect(() => {
-    const t = setTimeout(() => {
-      setDebouncedSearch(searchInput);
-      setPage(1);
-    }, 300);
+    const t = setTimeout(() => { setDebouncedSearch(searchInput); setPage(1); }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Fetch paginado
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({ page, limit: LIMIT });
     if (debouncedSearch) params.set('q', debouncedSearch);
     api.get(`/auth/users?${params}`)
-      .then(r => {
-        setUsuarios(r.data.data);
-        setTotal(r.data.total);
-        setTotalPages(r.data.totalPages);
-      })
+      .then(r => { setUsuarios(r.data.data); setTotal(r.data.total); setTotalPages(r.data.totalPages); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [debouncedSearch, page, refetchKey]);
@@ -163,7 +142,7 @@ export default function CadastroUsuarios() {
   };
 
   const startEdit = (u) => {
-    setConfirmDelete(null);
+    setConfirmInativar(null);
     setEditingId(u.id);
     setEditForm({
       nome: u.nome || '',
@@ -173,7 +152,11 @@ export default function CadastroUsuarios() {
       diretoria_id: u.diretoria_id ? String(u.diretoria_id) : '',
       coordenadoria_id: u.coordenadoria_id ? String(u.coordenadoria_id) : '',
     });
-    // O useEffect em [editForm.diretoria_id] cuida de carregar as coordenadorias
+    if (u.diretoria_id) {
+      api.get(`/diretorias/${u.diretoria_id}/coordenadorias`).then(r => setEditCoords(r.data)).catch(console.error);
+    } else {
+      setEditCoords([]);
+    }
   };
 
   const handleUpdate = async (e) => {
@@ -196,35 +179,41 @@ export default function CadastroUsuarios() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleInativar = async (id) => {
     setSaving(true); setError('');
     try {
       await api.delete(`/auth/users/${id}`);
+      setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ativo: 0 } : u));
+      setConfirmInativar(null);
       if (editingId === id) setEditingId(null);
-      setConfirmDelete(null);
-      setTotal(prev => prev - 1);
-      // Remove da página atual; se ficou vazia e não é a primeira, volta uma página
-      setUsuarios(prev => {
-        const next = prev.filter(u => u.id !== id);
-        if (next.length === 0 && page > 1) setPage(p => p - 1);
-        else refetch();
-        return next;
-      });
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao excluir usuário.');
+      setError(err.response?.data?.error || 'Erro ao inativar usuário.');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleReativar = async (id) => {
+    setSaving(true); setError('');
+    try {
+      await api.patch(`/auth/users/${id}/reativar`);
+      setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ativo: 1 } : u));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erro ao reativar usuário.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const COL_SPAN = 5;
+
   return (
-    <div className="nova-demanda-container" style={{ maxWidth: '860px' }}>
+    <div className="nova-demanda-container" style={{ maxWidth: '960px' }}>
       <div className="form-card">
         <h2 className="form-title">Cadastro de Usuários</h2>
 
         {error && <div className="form-error">{error}</div>}
 
-        {/* Formulário de criação */}
         <UserForm
           form={createForm}
           setForm={setCreateForm}
@@ -235,7 +224,6 @@ export default function CadastroUsuarios() {
           submitLabel="+ Adicionar Usuário"
         />
 
-        {/* Cabeçalho da lista */}
         <div style={{ marginTop: '2rem' }}>
           <div className="usuarios-list-header">
             <label className="form-section-label" style={{ margin: 0 }}>
@@ -250,7 +238,6 @@ export default function CadastroUsuarios() {
             />
           </div>
 
-          {/* Lista */}
           {loading ? (
             <p className="empty-hint" style={{ marginTop: '1rem' }}>Carregando...</p>
           ) : usuarios.length === 0 ? (
@@ -259,54 +246,77 @@ export default function CadastroUsuarios() {
             </p>
           ) : (
             <>
-              <ul className="macro-list" style={{ marginTop: '0.75rem' }}>
-                {usuarios.map(u => (
-                  <li key={u.id} className={`macro-list-item usuario-item${editingId === u.id ? ' usuario-item--editing' : ''}`}>
-                    {editingId === u.id ? (
-                      <div style={{ width: '100%' }}>
-                        <UserForm
-                          form={editForm}
-                          setForm={setEditForm}
-                          coordenadorias={editCoords}
-                          diretorias={diretorias}
-                          saving={saving}
-                          onSubmit={handleUpdate}
-                          submitLabel="Salvar alterações"
-                          onCancel={() => setEditingId(null)}
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="usuario-info">
-                          <span className="usuario-nome">{u.nome}</span>
-                          <span className="usuario-meta">
-                            <span className={`badge badge-role-${u.role}`}>{ROLE_LABEL[u.role]}</span>
-                            {u.matricula && <span className="usuario-coord">mat. {u.matricula}</span>}
-                            {u.email && <span className="usuario-coord">{u.email}</span>}
-                            {u.coordenadoria_nome && <span className="usuario-coord">{u.coordenadoria_nome}</span>}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                          {confirmDelete === u.id ? (
-                            <>
-                              <span style={{ fontSize: '0.82rem', color: 'var(--danger)', alignSelf: 'center' }}>Confirmar?</span>
-                              <button type="button" className="btn btn-danger-sm" onClick={() => handleDelete(u.id)} disabled={saving}>Excluir</button>
-                              <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.7rem', fontSize: '0.82rem' }} onClick={() => setConfirmDelete(null)}>Cancelar</button>
-                            </>
-                          ) : (
-                            <>
-                              <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.7rem', fontSize: '0.82rem' }} onClick={() => startEdit(u)} disabled={saving}>Editar</button>
-                              <button type="button" className="btn btn-danger-sm" onClick={() => { setConfirmDelete(u.id); setEditingId(null); }} disabled={saving}>Excluir</button>
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <div className="usuarios-table-wrapper">
+                <table className="usuarios-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>E-mail</th>
+                      <th>Coordenadoria</th>
+                      <th>Role</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuarios.map(u => (
+                      <React.Fragment key={u.id}>
+                        <tr className={`usuarios-row${u.ativo === 0 ? ' usuarios-row--inativo' : ''}`}>
+                          <td className="usuarios-cell-nome">
+                            {u.nome}
+                            {u.ativo === 0 && <span className="badge badge-inativo">Inativo</span>}
+                          </td>
+                          <td className="usuarios-cell-muted">{u.email || '—'}</td>
+                          <td className="usuarios-cell-muted">{u.coordenadoria_nome || '—'}</td>
+                          <td><span className={`badge badge-role-${u.role}`}>{ROLE_LABEL[u.role]}</span></td>
+                          <td>
+                            <div className="usuarios-acoes">
+                              {editingId !== u.id && (
+                                <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem' }} onClick={() => startEdit(u)} disabled={saving}>
+                                  Editar
+                                </button>
+                              )}
+                              {u.ativo !== 0 ? (
+                                confirmInativar === u.id ? (
+                                  <>
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>Confirmar?</span>
+                                    <button type="button" className="btn btn-danger-sm" onClick={() => handleInativar(u.id)} disabled={saving}>Sim</button>
+                                    <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setConfirmInativar(null)}>Não</button>
+                                  </>
+                                ) : (
+                                  <button type="button" className="btn btn-danger-sm" onClick={() => { setConfirmInativar(u.id); setEditingId(null); }} disabled={saving}>
+                                    Inativar
+                                  </button>
+                                )
+                              ) : (
+                                <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem' }} onClick={() => handleReativar(u.id)} disabled={saving}>
+                                  Reativar
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {editingId === u.id && (
+                          <tr className="usuarios-edit-row">
+                            <td colSpan={COL_SPAN}>
+                              <UserForm
+                                form={editForm}
+                                setForm={setEditForm}
+                                coordenadorias={editCoords}
+                                diretorias={diretorias}
+                                saving={saving}
+                                onSubmit={handleUpdate}
+                                submitLabel="Salvar alterações"
+                                onCancel={() => setEditingId(null)}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-              {/* Paginação */}
               {totalPages > 1 && (
                 <div className="usuarios-pagination">
                   <button className="btn btn-secondary" onClick={() => setPage(p => p - 1)} disabled={page === 1 || loading}>← Anterior</button>

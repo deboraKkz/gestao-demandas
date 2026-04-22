@@ -144,6 +144,14 @@ async function ensureDatabaseShape() {
         "UPDATE demandas SET concluded_at = COALESCE(concluded_at, created_at), pinned = false, pin_order = 0 WHERE status IN ('concluída', 'cancelada', 'suspensa')"
     );
 
+    const [ativoCol] = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'ativo'
+    `);
+    if (ativoCol.length === 0) {
+        await db.query(`ALTER TABLE usuarios ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT TRUE`);
+    }
+
     const [emailCol] = await db.query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'email'
@@ -172,9 +180,9 @@ app.get('/api/auth/users', async (req, res) => {
         `;
         const SELECT = `SELECT u.*, c.nome as coordenadoria_nome, d.id as diretoria_id, d.nome as diretoria_nome`;
 
-        // Sem paginação (mock login selector)
+        // Sem paginação (mock login selector — retorna apenas ativos)
         if (!page) {
-            const [rows] = await db.query(`${SELECT} ${BASE_QUERY} ORDER BY u.nome`);
+            const [rows] = await db.query(`${SELECT} ${BASE_QUERY} WHERE u.ativo = 1 ORDER BY u.nome`);
             return res.json(rows);
         }
 
@@ -183,8 +191,8 @@ app.get('/api/auth/users', async (req, res) => {
         const offset = (pageNum - 1) * limitNum;
         const like = q ? `%${q}%` : '%';
         const WHERE = q
-            ? `WHERE u.nome LIKE ? OR u.email LIKE ? OR u.matricula LIKE ?`
-            : '';
+            ? `WHERE (u.nome LIKE ? OR u.email LIKE ? OR u.matricula LIKE ?)`
+            : `WHERE 1=1`;
         const params = q ? [like, like, like] : [];
 
         const [[{ total }]] = await db.query(
@@ -259,7 +267,17 @@ app.get('/api/diretorias/:id/coordenadorias', async (req, res) => {
 
 app.delete('/api/auth/users/:id', async (req, res) => {
     try {
-        const [result] = await db.query('DELETE FROM usuarios WHERE id = ?', [req.params.id]);
+        const [result] = await db.query('UPDATE usuarios SET ativo = 0 WHERE id = ?', [req.params.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/auth/users/:id/reativar', async (req, res) => {
+    try {
+        const [result] = await db.query('UPDATE usuarios SET ativo = 1 WHERE id = ?', [req.params.id]);
         if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
         res.json({ success: true });
     } catch (err) {
