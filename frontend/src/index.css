@@ -660,6 +660,62 @@ main {
 .badge-role-diretor { background: rgba(59,130,246,0.12); color: var(--info); border: 1px solid var(--info); }
 .badge-role-comum   { background: rgba(148,163,184,0.1); color: var(--text-muted); border: 1px solid var(--border-color); }
 
+.usuarios-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.usuarios-search {
+  flex: 1;
+  max-width: 320px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: inherit;
+  font-size: 0.875rem;
+}
+
+.usuarios-search:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+.usuarios-total {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.usuario-item {
+  flex-direction: row;
+  align-items: center;
+}
+
+.usuario-item--editing {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 1rem 0.75rem;
+}
+
+.usuarios-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.usuarios-page-info {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
 /* Drag and Drop Utilities */
 .draggable-item {
   touch-action: none;
