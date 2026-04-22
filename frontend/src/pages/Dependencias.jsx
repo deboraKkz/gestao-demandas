@@ -60,23 +60,23 @@ export default function Dependencias() {
               </div>
 
               <div className="dep-grupo-list">
-                {grupo.demandas.map(d => (
+                {[...grupo.demandas].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(d => (
                   <div key={d.demanda_id} className="dep-row">
                     <div className="dep-row-info">
-                      <span className="dep-row-titulo">
-                        <span className="dep-pin-slot">{d.pinned ? <PinIcon size={14} /> : null}</span>
-                        <span className="dep-row-titulo-text">
+                      <span className="dep-pin-slot">{d.pinned ? <PinIcon size={14} /> : null}</span>
+                      <div className="dep-row-content">
+                        <span className="dep-row-titulo">
                           <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
                         </span>
-                      </span>
-                      {d.area_origem_nome && (
-                        <span className="dep-row-origem">de: {d.area_origem_nome}</span>
-                      )}
-                      {d.detalhes && (
-                        <span className="dep-row-detalhes" title={d.detalhes}>
-                          {truncate(d.detalhes)}
-                        </span>
-                      )}
+                        {d.area_origem_nome && (
+                          <span className="dep-row-origem">de: {d.area_origem_nome}</span>
+                        )}
+                        {d.detalhes && (
+                          <span className="dep-row-detalhes" title={d.detalhes}>
+                            {truncate(d.detalhes)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="dep-row-badges">
                       <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
