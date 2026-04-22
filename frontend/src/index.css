@@ -345,9 +345,17 @@ main {
 }
 
 .pin-icon {
-  color: var(--warning);
+  color: var(--danger);
   flex-shrink: 0;
   vertical-align: middle;
+}
+
+.dep-pin-slot {
+  width: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .demand-id-badge {
@@ -1377,8 +1385,15 @@ textarea.edit-input {
 }
 
 .dep-row-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-weight: 500;
   font-size: 0.9rem;
+  overflow: hidden;
+}
+
+.dep-row-titulo-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
