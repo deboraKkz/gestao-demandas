@@ -84,8 +84,8 @@ function SortableDemandCard({ demanda, onPinToggle, isDirector, onStatusChange, 
           {isCompleted && demanda.concluded_at && (
             <span>Concluída em {format(new Date(demanda.concluded_at), 'dd/MM/yyyy')}</span>
           )}
-          {demanda.aguarda_areas_nomes && (
-            <span className="dep-badge">aguarda {demanda.aguarda_areas_nomes}</span>
+          {demanda.dependencias_nomes && (
+            <span className="dep-badge">aguarda {demanda.dependencias_nomes}</span>
           )}
         </div>
         <div className="card-footer-actions">
