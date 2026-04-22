@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import api from '../api';
 import { UserContext } from '../App';
+import PinIcon from '../components/PinIcon';
 
 // Constantes
 const PRIORIDADES = ['crítica', 'alta', 'média', 'baixa'];
@@ -57,7 +58,7 @@ function SortableDemandCard({ demanda, onPinToggle, isDirector, onStatusChange, 
     >
       <div className="card-header">
         <h3 className="card-title">
-          {demanda.pinned && !isCompleted ? <span className="pin-icon">📌</span> : null}
+          {demanda.pinned && !isCompleted ? <PinIcon /> : null}
           <span className="demand-id-badge">{demanda.id}</span> {demanda.titulo}
         </h3>
         <div className="card-actions">

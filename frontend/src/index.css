@@ -346,7 +346,8 @@ main {
 
 .pin-icon {
   color: var(--warning);
-  font-size: 1.05rem;
+  flex-shrink: 0;
+  vertical-align: middle;
 }
 
 .demand-id-badge {
