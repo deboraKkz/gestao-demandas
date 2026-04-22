@@ -621,7 +621,7 @@ app.get('/api/dependencias', async (req, res) => {
         const [coordenadorias] = await db.query('SELECT * FROM coordenadorias');
 
         const [vinculos] = await db.query(`
-            SELECT daa.coordenadoria_id, d.id as demanda_id, d.titulo, d.prioridade, d.status,
+            SELECT daa.coordenadoria_id, d.id as demanda_id, d.titulo, d.prioridade, d.status, d.pinned,
                    daa.detalhes, c2.nome as area_origem_nome
             FROM demandas_aguarda_area daa
             JOIN demandas d ON daa.demanda_id = d.id AND d.ativo = 1

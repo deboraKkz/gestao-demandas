@@ -90,7 +90,7 @@ function SortableDemandCard({ demanda, onPinToggle, isDirector, onStatusChange, 
         <div className="card-footer-actions">
            {isDirector ? (
              <>
-               {!isCompleted && (
+               {!isCompleted && !isCancelled && !isSuspended && (
                  <button
                    className={`btn ${demanda.pinned ? 'btn-unpin' : 'btn-pin'}`}
                    onClick={() => onPinToggle(demanda.id)}
