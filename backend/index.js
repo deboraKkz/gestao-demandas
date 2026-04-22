@@ -160,6 +160,38 @@ app.get('/api/auth/users', async (req, res) => {
     }
 });
 
+app.post('/api/auth/users', async (req, res) => {
+    const { nome, role, coordenadoria_id } = req.body;
+    if (!nome?.trim() || !role) return res.status(400).json({ error: 'Nome e role são obrigatórios.' });
+    if (!['diretor', 'comum', 'admin'].includes(role)) return res.status(400).json({ error: 'Role inválida.' });
+    try {
+        const [result] = await db.query(
+            'INSERT INTO usuarios (nome, role, coordenadoria_id) VALUES (?, ?, ?)',
+            [nome.trim(), role, coordenadoria_id || null]
+        );
+        const [rows] = await db.query(`
+            SELECT u.*, c.nome as coordenadoria_nome, d.id as diretoria_id, d.nome as diretoria_nome
+            FROM usuarios u
+            LEFT JOIN coordenadorias c ON u.coordenadoria_id = c.id
+            LEFT JOIN diretorias d ON c.diretoria_id = d.id
+            WHERE u.id = ?
+        `, [result.insertId]);
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/auth/users/:id', async (req, res) => {
+    try {
+        const [result] = await db.query('DELETE FROM usuarios WHERE id = ?', [req.params.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- DIRETORIAS ---
 app.get('/api/diretorias', async (req, res) => {
     try {

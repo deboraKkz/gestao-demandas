@@ -7,6 +7,7 @@ import Priorizacoes from './pages/Priorizacoes';
 import NovaDemanda from './pages/NovaDemanda';
 import DemandaDetalhes from './pages/DemandaDetalhes';
 import MacroBacklogs from './pages/MacroBacklogs';
+import CadastroUsuarios from './pages/CadastroUsuarios';
 
 export const UserContext = createContext(null);
 
@@ -83,6 +84,15 @@ function Header({ users, currentUser, setCurrentUser, theme, setTheme }) {
                 >
                   Macro Backlogs
                 </Link>
+                {currentUser?.role === 'admin' && (
+                  <Link
+                    to="/usuarios"
+                    className={`header-dropdown-item${location.pathname === '/usuarios' ? ' ativo' : ''}`}
+                    onClick={() => setMenuAberto(false)}
+                  >
+                    Cadastro de Usuários
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -125,6 +135,7 @@ function App() {
                 <Route path="/nova-demanda" element={<NovaDemanda />} />
                 <Route path="/priorizacoes" element={['diretor', 'admin'].includes(currentUser.role) ? <Priorizacoes /> : <div style={{textAlign: 'center', marginTop: '50px'}}>Acesso restrito a Diretores.</div>} />
                 <Route path="/macro-backlogs" element={['diretor', 'admin'].includes(currentUser.role) ? <MacroBacklogs /> : <div style={{textAlign: 'center', marginTop: '50px'}}>Acesso restrito a Diretores e Administradores.</div>} />
+                <Route path="/usuarios" element={currentUser.role === 'admin' ? <CadastroUsuarios /> : <div style={{textAlign: 'center', marginTop: '50px'}}>Acesso restrito a Administradores.</div>} />
               </Routes>
             ) : (
               <div style={{textAlign: 'center', marginTop: '50px'}}>
