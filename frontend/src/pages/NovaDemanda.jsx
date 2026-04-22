@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { UserContext } from '../App';
@@ -31,6 +31,48 @@ export default function NovaDemanda() {
     previsao_entrega: '',
     justificativa_priorizacao: '',
   });
+
+  const [responsavelSearch, setResponsavelSearch] = useState('');
+  const [responsavelOpen, setResponsavelOpen] = useState(false);
+  const responsavelRef = useRef(null);
+
+  const usuariosOrdenados = useMemo(() => {
+    if (!currentUser || usuarios.length === 0) return usuarios;
+    return [
+      ...usuarios.filter(u => u.id === currentUser.id),
+      ...usuarios.filter(u => u.id !== currentUser.id),
+    ];
+  }, [usuarios, currentUser]);
+
+  const usuariosFiltrados = useMemo(() => {
+    if (!responsavelSearch.trim()) return usuariosOrdenados;
+    const q = responsavelSearch.toLowerCase();
+    return usuariosOrdenados.filter(u => u.nome.toLowerCase().includes(q));
+  }, [usuariosOrdenados, responsavelSearch]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (responsavelRef.current && !responsavelRef.current.contains(e.target)) {
+        setResponsavelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleResponsavelSelect = (usuario) => {
+    setForm(prev => ({ ...prev, responsavel_id: usuario.id }));
+    setResponsavelSearch(usuario.nome);
+    setResponsavelOpen(false);
+  };
+
+  const handleResponsavelInputChange = (e) => {
+    setResponsavelSearch(e.target.value);
+    setResponsavelOpen(true);
+    if (!e.target.value) {
+      setForm(prev => ({ ...prev, responsavel_id: '' }));
+    }
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -89,6 +131,10 @@ export default function NovaDemanda() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.responsavel_id) {
+      setError('Selecione um responsável.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -227,12 +273,34 @@ export default function NovaDemanda() {
           </div>
 
           {/* Responsável */}
-          <div className="form-group">
-            <label htmlFor="responsavel_id">Responsável *</label>
-            <select id="responsavel_id" name="responsavel_id" required value={form.responsavel_id} onChange={handleChange}>
-              <option value="">Selecione...</option>
-              {usuarios.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
-            </select>
+          <div className="form-group" ref={responsavelRef}>
+            <label htmlFor="responsavel-search">Responsável *</label>
+            <div className="responsavel-combobox">
+              <input
+                id="responsavel-search"
+                type="text"
+                placeholder="Pesquisar responsável..."
+                value={responsavelSearch}
+                onChange={handleResponsavelInputChange}
+                onFocus={() => setResponsavelOpen(true)}
+                autoComplete="off"
+              />
+              <input type="hidden" name="responsavel_id" value={form.responsavel_id} required />
+              {responsavelOpen && usuariosFiltrados.length > 0 && (
+                <ul className="responsavel-dropdown">
+                  {usuariosFiltrados.map((u, i) => (
+                    <li
+                      key={u.id}
+                      className={`responsavel-option${i === 0 && u.id === currentUser?.id ? ' responsavel-option--current' : ''}`}
+                      onMouseDown={() => handleResponsavelSelect(u)}
+                    >
+                      {u.nome}
+                      {i === 0 && u.id === currentUser?.id && <span className="responsavel-badge">Você</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* Prazo + Previsão de Entrega */}

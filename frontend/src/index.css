@@ -855,6 +855,56 @@ main {
   padding: 0.5rem;
 }
 
+/* Combobox de responsável */
+.responsavel-combobox {
+  position: relative;
+}
+
+.responsavel-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.responsavel-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.15s;
+}
+
+.responsavel-option:hover {
+  background: rgba(79, 70, 229, 0.12);
+}
+
+.responsavel-option--current {
+  font-weight: 600;
+}
+
+.responsavel-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--primary-color);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
 /* Detalhes da demanda */
 .detail-page {
   max-width: 980px;
