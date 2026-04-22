@@ -64,8 +64,10 @@ export default function Dependencias() {
                   <div key={d.demanda_id} className="dep-row">
                     <div className="dep-row-info">
                       <span className="dep-row-titulo">
-                        {d.pinned ? <PinIcon size={12} /> : null}
-                        <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
+                        <span className="dep-pin-slot">{d.pinned ? <PinIcon size={14} /> : null}</span>
+                        <span className="dep-row-titulo-text">
+                          <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
+                        </span>
                       </span>
                       {d.area_origem_nome && (
                         <span className="dep-row-origem">de: {d.area_origem_nome}</span>

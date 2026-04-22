@@ -58,7 +58,7 @@ function SortableDemandCard({ demanda, onPinToggle, isDirector, onStatusChange, 
     >
       <div className="card-header">
         <h3 className="card-title">
-          {demanda.pinned && !isCompleted ? <PinIcon /> : null}
+          {demanda.pinned && !isCompleted ? <PinIcon size={16} /> : null}
           <span className="demand-id-badge">{demanda.id}</span> {demanda.titulo}
         </h3>
         <div className="card-actions">
@@ -322,7 +322,7 @@ export default function Demandas() {
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={pinnedDemandas.map(d => d.id)} strategy={verticalListSortingStrategy}>
                 <div style={{ marginBottom: '1rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem' }}>
-                  <h3 className="accent-section-heading">📌 Priorizadas</h3>
+                  <h3 className="accent-section-heading"><PinIcon size={16} /> Priorizadas</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {pinnedDemandas.map(d => (
                       <SortableDemandCard 
