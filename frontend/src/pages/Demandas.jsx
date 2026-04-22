@@ -29,10 +29,12 @@ const STATUS_CONCLUIDA = STATUS_OPTIONS[2];
 
 const isCompletedStatus = (status) => status === STATUS_CONCLUIDA;
 const isCancelledStatus = (status) => status === 'cancelada';
+const isSuspendedStatus = (status) => status === 'suspensa';
 
 function SortableDemandCard({ demanda, onPinToggle, isDirector, onStatusChange, onDetails, canDrag = false }) {
   const isCompleted = isCompletedStatus(demanda.status);
   const isCancelled = isCancelledStatus(demanda.status);
+  const isSuspended = isSuspendedStatus(demanda.status);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
     id: demanda.id,
     disabled: !canDrag
@@ -49,7 +51,7 @@ function SortableDemandCard({ demanda, onPinToggle, isDirector, onStatusChange, 
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`demand-card area-card-${demanda.coordenadoria_id} ${demanda.pinned ? 'is-pinned' : ''} ${isCompleted ? 'is-completed' : ''} ${isCancelled ? 'is-cancelled' : ''} ${canDrag ? 'draggable-item' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      className={`demand-card area-card-${demanda.coordenadoria_id} ${demanda.pinned ? 'is-pinned' : ''} ${isCompleted ? 'is-completed' : ''} ${isCancelled ? 'is-cancelled' : ''} ${isSuspended ? 'is-suspended' : ''} ${canDrag ? 'draggable-item' : ''} ${isDragging ? 'is-dragging' : ''}`}
       {...(canDrag ? attributes : {})}
       {...(canDrag ? listeners : {})}
     >

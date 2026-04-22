@@ -299,13 +299,15 @@ main {
 }
 
 .demand-card.is-completed,
-.demand-card.is-cancelled {
+.demand-card.is-cancelled,
+.demand-card.is-suspended {
   background: var(--completed-card-bg);
   box-shadow: none;
 }
 
 .demand-card.is-completed:hover,
-.demand-card.is-cancelled:hover {
+.demand-card.is-cancelled:hover,
+.demand-card.is-suspended:hover {
   box-shadow: 0 6px 10px -6px rgba(0, 0, 0, 0.25);
 }
 
@@ -314,12 +316,16 @@ main {
 .demand-card.is-completed .card-footer,
 .demand-card.is-cancelled .card-title,
 .demand-card.is-cancelled .card-body,
-.demand-card.is-cancelled .card-footer {
+.demand-card.is-cancelled .card-footer,
+.demand-card.is-suspended .card-title,
+.demand-card.is-suspended .card-body,
+.demand-card.is-suspended .card-footer {
   color: var(--text-muted);
 }
 
 .demand-card.is-completed .badge,
-.demand-card.is-cancelled .badge {
+.demand-card.is-cancelled .badge,
+.demand-card.is-suspended .badge {
   opacity: 0.72;
 }
 
