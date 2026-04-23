@@ -203,7 +203,7 @@ export default function DemandaDetalhes() {
                 onClick={() => navigate(`/demandas/${demanda.demanda_mae_id}`)}
                 title={`Ir para a demanda mãe: ${demanda.demanda_mae_titulo}`}
               >
-                ↑ Demanda mãe: {demanda.demanda_mae_id} — {demanda.demanda_mae_titulo}
+                ↑ Demanda mãe: {demanda.demanda_mae_id} - {demanda.demanda_mae_titulo}
               </button>
             </>
           )}

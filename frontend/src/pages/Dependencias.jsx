@@ -168,7 +168,7 @@ export default function Dependencias() {
                               <span className={`badge badge-status-${(d.filha_status || '').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.69rem' }}>
                                 {d.filha_status}
                               </span>
-                              <span> {d.demanda_filha_id} — {d.filha_titulo}</span>
+                              <span>Demanda {d.demanda_filha_id} — {d.filha_titulo}</span>
                             </div>
                           )}
                         </div>
