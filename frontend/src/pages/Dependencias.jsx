@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import api from '../api';
 import PinIcon from '../components/PinIcon';
+import { UserContext } from '../App';
 
 const TRUNCATE_LEN = 90;
 function truncate(text) {
   if (!text) return null;
   return text.length > TRUNCATE_LEN ? text.slice(0, TRUNCATE_LEN).trimEnd() + '…' : text;
+}
+
+function formatDateShort(value) {
+  if (!value) return '';
+  try { return format(new Date(value), 'dd/MM/yyyy'); } catch { return ''; }
 }
 
 const PRIORIDADE_LABEL = {
@@ -26,15 +33,58 @@ const STATUS_LABEL = {
 
 export default function Dependencias() {
   const navigate = useNavigate();
+  const currentUser = useContext(UserContext);
+
   const [grupos, setGrupos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null); // dependencia_id em ação
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
+  const carregarDependencias = () => {
+    setLoading(true);
     api.get('/dependencias')
       .then(r => setGrupos(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { carregarDependencias(); }, []);
+
+  const podeAgir = (coordenadoria_id) =>
+    currentUser?.role === 'admin' ||
+    Number(currentUser?.coordenadoria_id) === Number(coordenadoria_id);
+
+  const handleRejeitar = async (dep) => {
+    if (!window.confirm('Confirma a rejeição desta dependência?')) return;
+    setActionLoading(dep.dependencia_id);
+    setActionError('');
+    try {
+      await api.post(`/dependencias/${dep.dependencia_id}/rejeitar`, { usuario_id: currentUser.id });
+      carregarDependencias();
+    } catch (err) {
+      setActionError(err.response?.data?.error || 'Erro ao rejeitar dependência.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleConcluir = async (dep) => {
+    if (!window.confirm('Confirma a conclusão desta dependência sem criar nova demanda?')) return;
+    setActionLoading(dep.dependencia_id);
+    setActionError('');
+    try {
+      await api.post(`/dependencias/${dep.dependencia_id}/concluir`, { usuario_id: currentUser.id });
+      carregarDependencias();
+    } catch (err) {
+      setActionError(err.response?.data?.error || 'Erro ao concluir dependência.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCadastrarFilha = (dep) => {
+    navigate(`/nova-demanda?dependencia=${dep.dependencia_id}`);
+  };
 
   if (loading) return <p>Carregando...</p>;
 
@@ -42,6 +92,10 @@ export default function Dependencias() {
     <div className="dependencias-page">
       <h2 className="dep-page-title">Dependências por Área</h2>
       <p className="dep-page-subtitle">Demandas que aguardam resposta ou entrega de cada coordenadoria.</p>
+
+      {actionError && (
+        <div className="form-error" style={{ marginBottom: '1rem' }}>{actionError}</div>
+      )}
 
       {grupos.length === 0 ? (
         <div className="dep-empty">
@@ -51,53 +105,90 @@ export default function Dependencias() {
         </div>
       ) : (
         <div className="dep-grupos">
-          {grupos.map(grupo => (
-            <div key={grupo.coordenadoria_id} className="dep-grupo">
-              <div className={`dep-grupo-header area-header-${grupo.coordenadoria_id}`}>
-                <span className={`area-dot area-dot-${grupo.coordenadoria_id}`}></span>
-                <h3>Demandas aguardando <strong>{grupo.coordenadoria_nome}</strong></h3>
-                <span className="dep-count">{grupo.demandas.length}</span>
-              </div>
+          {grupos.map(grupo => {
+            const temPermissao = podeAgir(grupo.coordenadoria_id);
+            return (
+              <div key={grupo.coordenadoria_id} className="dep-grupo">
+                <div className={`dep-grupo-header area-header-${grupo.coordenadoria_id}`}>
+                  <span className={`area-dot area-dot-${grupo.coordenadoria_id}`}></span>
+                  <h3>Demandas aguardando <strong>{grupo.coordenadoria_nome}</strong></h3>
+                  <span className="dep-count">{grupo.demandas.length}</span>
+                </div>
 
-              <div className="dep-grupo-list">
-                {[...grupo.demandas].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(d => (
-                  <div key={d.demanda_id} className="dep-row">
-                    <div className="dep-row-info">
-                      <span className="dep-pin-slot">{d.pinned ? <PinIcon size={14} /> : null}</span>
-                      <div className="dep-row-content">
-                        <span className="dep-row-titulo">
-                          <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
-                        </span>
-                        {d.area_origem_nome && (
-                          <span className="dep-row-origem">de: {d.area_origem_nome}</span>
-                        )}
-                        {d.detalhes && (
-                          <span className="dep-row-detalhes" title={d.detalhes}>
-                            {truncate(d.detalhes)}
+                <div className="dep-grupo-list">
+                  {[...grupo.demandas].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(d => {
+                    const emAcao = actionLoading === d.dependencia_id;
+                    return (
+                      <div key={d.dependencia_id} className="dep-row">
+                        <div className="dep-row-info">
+                          <span className="dep-pin-slot">{d.pinned ? <PinIcon size={14} /> : null}</span>
+                          <div className="dep-row-content">
+                            <span className="dep-row-titulo">
+                              <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
+                            </span>
+                            {d.area_origem_nome && (
+                              <span className="dep-row-origem">de: {d.area_origem_nome}</span>
+                            )}
+                            {d.detalhes && (
+                              <span className="dep-row-detalhes" title={d.detalhes}>
+                                {truncate(d.detalhes)}
+                              </span>
+                            )}
+                            {d.created_at && (
+                              <span className="dep-row-data">cadastrada em {formatDateShort(d.created_at)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="dep-row-badges">
+                          <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
+                            {PRIORIDADE_LABEL[d.prioridade]?.label || d.prioridade}
                           </span>
-                        )}
+                          <span className={`badge ${STATUS_LABEL[d.status]}`}>
+                            {d.status}
+                          </span>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                            onClick={() => navigate(`/demandas/${d.demanda_id}`)}
+                          >
+                            Detalhes
+                          </button>
+                          {temPermissao && (
+                            <>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                                disabled={emAcao}
+                                onClick={() => handleCadastrarFilha(d)}
+                              >
+                                + Nova demanda
+                              </button>
+                              <button
+                                className="btn btn-save"
+                                style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                                disabled={emAcao}
+                                onClick={() => handleConcluir(d)}
+                              >
+                                Concluir
+                              </button>
+                              <button
+                                className="btn btn-danger-outline"
+                                style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                                disabled={emAcao}
+                                onClick={() => handleRejeitar(d)}
+                              >
+                                Rejeitar
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="dep-row-badges">
-                      <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
-                        {PRIORIDADE_LABEL[d.prioridade]?.label || d.prioridade}
-                      </span>
-                      <span className={`badge ${STATUS_LABEL[d.status]}`}>
-                        {d.status}
-                      </span>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
-                        onClick={() => navigate(`/demandas/${d.demanda_id}`)}
-                      >
-                        Detalhes
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

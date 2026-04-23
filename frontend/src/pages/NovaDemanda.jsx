@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { UserContext } from '../App';
 
@@ -10,6 +10,10 @@ const DOMINIOS = ['Judicial', 'Administrativo', 'Misto'];
 export default function NovaDemanda() {
   const currentUser = useContext(UserContext);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dependenciaId = searchParams.get('dependencia');
+
+  const [depMae, setDepMae] = useState(null); // dados da dependência quando modo filha
 
   const [coordenadorias, setCoordenadorias] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -82,6 +86,26 @@ export default function NovaDemanda() {
     api.get('/auth/users').then(r => setUsuarios(r.data)).catch(console.error);
   }, []);
 
+  // Modo filha: carregar dados da dependência e pré-preencher formulário
+  useEffect(() => {
+    if (!dependenciaId) return;
+    api.get(`/dependencias/${dependenciaId}`)
+      .then(r => {
+        const dep = r.data;
+        setDepMae(dep);
+        setForm(prev => ({
+          ...prev,
+          coordenadoria_id: dep.coordenadoria_id,
+          prioridade: dep.mae_prioridade,
+          descricao: dep.detalhes || '',
+          titulo: dep.mae_titulo || '',
+        }));
+      })
+      .catch(err => {
+        setError(err.response?.data?.error || 'Erro ao carregar dependência.');
+      });
+  }, [dependenciaId]);
+
   // Carrega os macro_backlogs disponíveis conforme a coordenadoria selecionada
   useEffect(() => {
     if (!form.coordenadoria_id) {
@@ -138,12 +162,30 @@ export default function NovaDemanda() {
     setLoading(true);
     setError('');
     try {
-      await api.post('/demandas', {
-        ...form,
-        criador_id: currentUser.id,
-        coordenadoria_id: form.coordenadoria_id || null,
-      });
-      navigate('/');
+      if (dependenciaId && depMae) {
+        // Modo filha: rota específica que herda coordenadoria e prioridade da mãe
+        const { data } = await api.post(`/dependencias/${dependenciaId}/demanda-filha`, {
+          titulo: form.titulo,
+          descricao: form.descricao,
+          canal_origem: form.canal_origem || null,
+          solicitante: form.solicitante || null,
+          setor_demandante: form.setor_demandante || null,
+          responsavel_id: form.responsavel_id || null,
+          prazo: form.prazo || null,
+          dominio: form.dominio || null,
+          previsao_entrega: form.previsao_entrega || null,
+          macro_backlog_id: form.macro_backlog_id || null,
+          criador_id: currentUser.id,
+        });
+        navigate(`/demandas/${data.demanda_filha_id}`);
+      } else {
+        await api.post('/demandas', {
+          ...form,
+          criador_id: currentUser.id,
+          coordenadoria_id: form.coordenadoria_id || null,
+        });
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao salvar demanda.');
     } finally {
@@ -154,7 +196,16 @@ export default function NovaDemanda() {
   return (
     <div className="nova-demanda-container">
       <div className="form-card">
-        <h2 className="form-title">Nova Demanda</h2>
+        <h2 className="form-title">{depMae ? 'Nova Demanda Filha' : 'Nova Demanda'}</h2>
+
+        {depMae && (
+          <div className="dep-filha-banner">
+            <strong>Demanda filha de #{depMae.mae_id}</strong> — {depMae.mae_titulo}
+            <span style={{ display: 'block', fontSize: '0.82rem', marginTop: '0.25rem', opacity: 0.8 }}>
+              Coordenadoria e criticidade herdadas da demanda mãe e não podem ser alteradas.
+            </span>
+          </div>
+        )}
 
         {error && <div className="form-error">{error}</div>}
 
@@ -190,11 +241,18 @@ export default function NovaDemanda() {
           {/* Linha: Coordenadoria + Macro */}
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="coordenadoria_id">Área / Coordenadoria *</label>
-              <select id="coordenadoria_id" name="coordenadoria_id" required value={form.coordenadoria_id} onChange={handleChange}>
-                <option value="">Selecione...</option>
-                {coordenadorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
+              <label htmlFor="coordenadoria_id">
+                Área / Coordenadoria *
+                {depMae && <span className="label-hint"> (herdada da mãe)</span>}
+              </label>
+              {depMae ? (
+                <input className="edit-input" value={depMae.coordenadoria_nome} disabled />
+              ) : (
+                <select id="coordenadoria_id" name="coordenadoria_id" required value={form.coordenadoria_id} onChange={handleChange}>
+                  <option value="">Selecione...</option>
+                  {coordenadorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              )}
             </div>
 
             <div className="form-group">
@@ -217,13 +275,20 @@ export default function NovaDemanda() {
 
           {/* Prioridade */}
           <div className="form-group">
-            <label htmlFor="prioridade">Prioridade *</label>
-            <select id="prioridade" name="prioridade" required value={form.prioridade} onChange={handleChange}>
-              <option value="">Selecione...</option>
-              {PRIORIDADES.map(p => (
-                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-              ))}
-            </select>
+            <label htmlFor="prioridade">
+              Prioridade *
+              {depMae && <span className="label-hint"> (herdada da mãe)</span>}
+            </label>
+            {depMae ? (
+              <input className="edit-input" value={form.prioridade} disabled />
+            ) : (
+              <select id="prioridade" name="prioridade" required value={form.prioridade} onChange={handleChange}>
+                <option value="">Selecione...</option>
+                {PRIORIDADES.map(p => (
+                  <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Canal de Origem + Domínio */}
@@ -363,34 +428,36 @@ export default function NovaDemanda() {
             </div>
           )}
 
-          {/* Dependências de área */}
-          <div className="form-group">
-            <label>
-              Dependência <span className="label-hint">(selecione as áreas das quais esta demanda depende)</span>
-            </label>
-            <div className="dependencias-list">
-              {coordenadorias.map(c => (
-                <div key={c.id} className="dep-item dep-item-details">
-                  <label className="dep-check-row">
-                    <input
-                      type="checkbox"
-                      checked={form.aguarda_areas.some(a => a.coordenadoria_id === c.id)}
-                      onChange={() => handleAreaToggle(c.id)}
-                    />
-                    <span>{c.nome}</span>
-                  </label>
-                  {form.aguarda_areas.some(a => a.coordenadoria_id === c.id) && (
-                    <textarea
-                      rows={3}
-                      placeholder="Detalhe o que esta dependência precisa resolver..."
-                      value={form.aguarda_areas.find(a => a.coordenadoria_id === c.id)?.detalhes || ''}
-                      onChange={(e) => handleDependenciaDetalhesChange(c.id, e.target.value)}
-                    />
-                  )}
-                </div>
-              ))}
+          {/* Dependências de área — ocultas no modo filha */}
+          {!depMae && (
+            <div className="form-group">
+              <label>
+                Dependência <span className="label-hint">(selecione as áreas das quais esta demanda depende)</span>
+              </label>
+              <div className="dependencias-list">
+                {coordenadorias.map(c => (
+                  <div key={c.id} className="dep-item dep-item-details">
+                    <label className="dep-check-row">
+                      <input
+                        type="checkbox"
+                        checked={form.aguarda_areas.some(a => a.coordenadoria_id === c.id)}
+                        onChange={() => handleAreaToggle(c.id)}
+                      />
+                      <span>{c.nome}</span>
+                    </label>
+                    {form.aguarda_areas.some(a => a.coordenadoria_id === c.id) && (
+                      <textarea
+                        rows={3}
+                        placeholder="Detalhe o que esta dependência precisa resolver..."
+                        value={form.aguarda_areas.find(a => a.coordenadoria_id === c.id)?.detalhes || ''}
+                        onChange={(e) => handleDependenciaDetalhesChange(c.id, e.target.value)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Ações */}
           <div className="form-actions">

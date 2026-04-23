@@ -29,6 +29,21 @@ function Field({ label, value }) {
   );
 }
 
+function labelEvento(tipo, payload) {
+  const p = payload || {};
+  switch (tipo) {
+    case 'criada':                return 'Demanda cadastrada';
+    case 'status_alterado':       return `Status: ${p.de} → ${p.para}`;
+    case 'coordenadoria_alterada':return `Coordenadoria: ${p.de_nome} → ${p.para_nome}`;
+    case 'priorizacao_aprovada':  return 'Priorização aprovada';
+    case 'priorizacao_rejeitada': return 'Priorização rejeitada';
+    case 'dependencia_cadastrada':return `Dependência cadastrada: ${p.coordenadoria_nome || ''}`;
+    case 'dependencia_rejeitada': return `Dependência rejeitada: ${p.coordenadoria_nome || ''}`;
+    case 'dependencia_concluida': return `Dependência concluída: ${p.coordenadoria_nome || ''}${p.demanda_filha_id ? ` (filha #${p.demanda_filha_id})` : ''}`;
+    default:                      return tipo;
+  }
+}
+
 export default function DemandaDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -99,10 +114,9 @@ export default function DemandaDetalhes() {
       dominio: demanda.dominio || '',
       previsao_entrega: toDateInput(demanda.previsao_entrega),
       justificativa_priorizacao: '', // campo para novo pedido — começa em branco
-      aguarda_areas: demanda.dependencias?.map(dep => ({
-        coordenadoria_id: dep.coordenadoria_id,
-        detalhes: dep.detalhes || '',
-      })) || [],
+      aguarda_areas: demanda.dependencias
+        ?.filter(dep => dep.status === 'pendente')
+        .map(dep => ({ coordenadoria_id: dep.coordenadoria_id, detalhes: dep.detalhes || '' })) || [],
       solicitar_priorizacao: false,
     });
     setSaveError('');
@@ -167,8 +181,10 @@ export default function DemandaDetalhes() {
   if (!demanda) return null;
 
   const priorizacaoPendente = !!demanda.flag_priorizacao_solicitada;
-  const ultimaDecisao = demanda.historico_priorizacoes?.[0]?.decisao; // já vem DESC
-  const foiAprovada = !priorizacaoPendente && ultimaDecisao === 'aprovado';
+  const ultimaDecisaoPrio = demanda.historico_eventos?.find(e =>
+    e.tipo === 'priorizacao_aprovada' || e.tipo === 'priorizacao_rejeitada'
+  );
+  const foiAprovada = !priorizacaoPendente && ultimaDecisaoPrio?.tipo === 'priorizacao_aprovada';
   const podesolicitar = !priorizacaoPendente && !foiAprovada;
 
   return (
@@ -379,10 +395,32 @@ export default function DemandaDetalhes() {
           demanda.dependencias?.length ? (
             <div className="detail-dependencies">
               {demanda.dependencias.map(dep => (
-                <div key={dep.coordenadoria_id} className={`detail-dependency area-card-${dep.coordenadoria_id}`}>
-                  <strong>{dep.coordenadoria_nome}</strong>
-                  <p>{dep.detalhes || 'Sem detalhes informados.'}</p>
-                </div>
+                dep.status === 'concluida' && dep.demanda_filha_id ? (
+                  <div
+                    key={dep.id}
+                    className={`detail-dependency detail-dependency-filha area-card-${dep.coordenadoria_id}`}
+                    onClick={() => navigate(`/demandas/${dep.demanda_filha_id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong>{dep.coordenadoria_nome}</strong>
+                      <span className={`badge badge-status-${(dep.demanda_filha_status || '').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.72rem' }}>
+                        {dep.demanda_filha_status}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', opacity: 0.8 }}>
+                      Demanda filha #{dep.demanda_filha_id} — {dep.demanda_filha_titulo}
+                    </p>
+                  </div>
+                ) : (
+                  <div key={dep.id} className={`detail-dependency area-card-${dep.coordenadoria_id}`}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong>{dep.coordenadoria_nome}</strong>
+                      <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{formatDate(dep.created_at)}</span>
+                    </div>
+                    <p>{dep.detalhes || 'Sem detalhes informados.'}</p>
+                  </div>
+                )
               ))}
             </div>
           ) : (
@@ -465,20 +503,20 @@ export default function DemandaDetalhes() {
         )}
       </section>
 
-      {/* ── Histórico de Priorização ── */}
+      {/* ── Histórico de Eventos ── */}
       <section className="detail-section">
-        <h3>Histórico de Priorização</h3>
-        {demanda.historico_priorizacoes?.length ? (
+        <h3>Histórico de Eventos</h3>
+        {demanda.historico_eventos?.length ? (
           <div className="detail-history">
-            {demanda.historico_priorizacoes.map(item => (
-              <div key={item.id} className="detail-history-item">
-                <strong>{item.decisao}</strong>
-                <span>{item.diretor_nome || 'Diretor N/A'} em {formatDate(item.data_decisao)}</span>
+            {demanda.historico_eventos.map(ev => (
+              <div key={ev.id} className="detail-history-item">
+                <strong>{labelEvento(ev.tipo, ev.payload)}</strong>
+                <span>{ev.usuario_nome || '—'} em {formatDate(ev.created_at)}</span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="detail-muted">Sem histórico de priorização.</p>
+          <p className="detail-muted">Sem eventos registrados.</p>
         )}
       </section>
     </div>
