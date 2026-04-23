@@ -1590,9 +1590,35 @@ textarea.edit-input {
   white-space: nowrap;
 }
 
+.dep-row-data {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 .dep-row-badges {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
+
+/* Banner modo filha em NovaDemanda */
+.dep-filha-banner {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Card de demanda filha na seção de dependências */
+.detail-dependency-filha {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.detail-dependency-filha:hover { opacity: 0.8; }
