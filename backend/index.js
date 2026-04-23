@@ -64,12 +64,30 @@ async function ensureDatabaseShape() {
     }
 
     // Trocar PK composta por surrogate key id
+    // (é necessário dropar as FKs antes de dropar a PK composta no MySQL)
     const [depIdCol] = await db.query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias' AND COLUMN_NAME = 'id'
     `);
     if (depIdCol.length === 0) {
+        // Descobrir e dropar FKs existentes na tabela
+        const [fkRows] = await db.query(`
+            SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dependencias'
+              AND REFERENCED_TABLE_NAME IS NOT NULL
+        `);
+        const droppedFks = new Set();
+        for (const row of fkRows) {
+            if (!droppedFks.has(row.CONSTRAINT_NAME)) {
+                await db.query(`ALTER TABLE dependencias DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
+                droppedFks.add(row.CONSTRAINT_NAME);
+            }
+        }
         await db.query(`ALTER TABLE dependencias DROP PRIMARY KEY, ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST`);
+        // Recriar FKs
+        await db.query(`ALTER TABLE dependencias
+            ADD CONSTRAINT fk_dep_demanda      FOREIGN KEY (demanda_id)      REFERENCES demandas(id)       ON DELETE CASCADE,
+            ADD CONSTRAINT fk_dep_coordenadoria FOREIGN KEY (coordenadoria_id) REFERENCES coordenadorias(id) ON DELETE CASCADE`);
     }
 
     // status do ciclo de vida da dependência
