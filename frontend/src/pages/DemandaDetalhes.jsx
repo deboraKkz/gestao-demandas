@@ -195,6 +195,18 @@ export default function DemandaDetalhes() {
           <span className="detail-eyebrow">Demanda #{demanda.id}</span>
           <span className="detail-eyebrow-sep">•</span>
           <span className="detail-eyebrow">{demanda.coordenadoria_nome}</span>
+          {demanda.demanda_mae_id && (
+            <>
+              <span className="detail-eyebrow-sep">•</span>
+              <button
+                className="detail-mae-badge"
+                onClick={() => navigate(`/demandas/${demanda.demanda_mae_id}`)}
+                title={`Ir para a demanda mãe: ${demanda.demanda_mae_titulo}`}
+              >
+                ↑ filha de #{demanda.demanda_mae_id} — {demanda.demanda_mae_titulo}
+              </button>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>

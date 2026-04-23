@@ -1538,71 +1538,142 @@ textarea.edit-input {
   flex-direction: column;
 }
 
-.dep-row {
+/* ── Cards de dependência ── */
+.dep-card {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+  transition: background 0.15s;
+}
+.dep-card:last-child { border-bottom: none; }
+.dep-card:hover { background: rgba(255,255,255,0.02); }
+
+.dep-card-main {
+  padding: 1rem 1.25rem 0.75rem;
+}
+
+.dep-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.dep-card-title-group {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.85rem 1.25rem;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-  transition: background 0.15s;
-  gap: 1rem;
-}
-
-.dep-row:last-child { border-bottom: none; }
-.dep-row:hover { background: rgba(255,255,255,0.03); }
-
-.dep-row-info {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 0.35rem;
+  gap: 0.45rem;
   flex: 1;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
-.dep-row-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.dep-row-titulo {
-  font-weight: 500;
+.dep-card-titulo {
   font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.4;
 }
 
-.dep-row-origem {
-  font-size: 0.75rem;
+.dep-card-badges {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.dep-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.dep-card-meta-item {
+  font-size: 0.76rem;
   color: var(--text-muted);
 }
 
-.dep-row-detalhes {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.dep-card-meta-label {
   font-style: italic;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dep-row-data {
-  font-size: 0.72rem;
-  color: var(--text-muted);
   opacity: 0.7;
 }
 
-.dep-row-badges {
+.dep-card-detalhes {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.dep-card-footer {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 1.25rem;
+  border-top: 1px solid rgba(51, 65, 85, 0.3);
+  background: rgba(0,0,0,0.08);
+}
+
+.dep-btn-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-family: inherit;
+  padding: 0.2rem 0;
+  transition: color 0.15s;
+  text-decoration: none;
+}
+.dep-btn-link:hover { color: var(--primary-color); }
+
+.dep-card-actions {
+  display: flex;
   gap: 0.4rem;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+}
+
+.dep-action-btn {
+  border: none;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 0.28rem 0.65rem;
+  border-radius: 5px;
+  transition: all 0.15s;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+.dep-action-btn:disabled { opacity: 0.45; cursor: default; }
+
+.dep-action-filha {
+  background: rgba(79, 70, 229, 0.12);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.28);
+}
+.dep-action-filha:hover:not(:disabled) {
+  background: rgba(79, 70, 229, 0.22);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.dep-action-concluir {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+.dep-action-concluir:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.dep-action-rejeitar {
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+.dep-action-rejeitar:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.42);
 }
 
 /* Banner modo filha em NovaDemanda */
@@ -1622,3 +1693,27 @@ textarea.edit-input {
   transition: opacity 0.15s;
 }
 .detail-dependency-filha:hover { opacity: 0.8; }
+
+/* Badge de demanda mãe no cabeçalho do detalhe */
+.detail-mae-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem 0.6rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 999px;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+.detail-mae-badge:hover {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+}
