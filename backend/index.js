@@ -1020,11 +1020,14 @@ app.get('/api/dependencias', async (req, res) => {
 
         const [vinculos] = await db.query(`
             SELECT dep.id as dependencia_id, dep.coordenadoria_id, dep.detalhes, dep.created_at,
+                   dep.demanda_filha_id,
                    d.id as demanda_id, d.titulo, d.prioridade, d.status, d.pinned,
-                   c2.nome as area_origem_nome
+                   c2.nome as area_origem_nome,
+                   df.titulo as filha_titulo, df.status as filha_status
             FROM dependencias dep
             JOIN demandas d ON dep.demanda_id = d.id AND d.ativo = 1
             LEFT JOIN coordenadorias c2 ON d.coordenadoria_id = c2.id
+            LEFT JOIN demandas df ON dep.demanda_filha_id = df.id
             WHERE dep.status = 'pendente'
             ORDER BY dep.coordenadoria_id
         `);

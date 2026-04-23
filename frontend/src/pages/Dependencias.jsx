@@ -123,7 +123,7 @@ export default function Dependencias() {
                         <div className="dep-card-main">
                           <div className="dep-card-title-row">
                             <div className="dep-card-title-group">
-                              {d.pinned && <PinIcon size={13} />}
+                              {!!d.pinned && <PinIcon size={13} />}
                               <span className="demand-id-badge">{d.demanda_id}</span>
                               <span className="dep-card-titulo">{d.titulo}</span>
                             </div>
@@ -153,6 +153,17 @@ export default function Dependencias() {
                               {truncate(d.detalhes)}
                             </p>
                           )}
+                          {d.demanda_filha_id && (
+                            <div
+                              className="dep-card-filha"
+                              onClick={() => navigate(`/demandas/${d.demanda_filha_id}`)}
+                            >
+                              <span className={`badge badge-status-${(d.filha_status || '').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.69rem' }}>
+                                {d.filha_status}
+                              </span>
+                              <span>Filha #{d.demanda_filha_id} — {d.filha_titulo}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="dep-card-footer">
                           <button
@@ -163,13 +174,15 @@ export default function Dependencias() {
                           </button>
                           {temPermissao && (
                             <div className="dep-card-actions">
-                              <button
-                                className="dep-action-btn dep-action-filha"
-                                disabled={emAcao}
-                                onClick={() => handleCadastrarFilha(d)}
-                              >
-                                + Nova demanda filha
-                              </button>
+                              {!d.demanda_filha_id && (
+                                <button
+                                  className="dep-action-btn dep-action-filha"
+                                  disabled={emAcao}
+                                  onClick={() => handleCadastrarFilha(d)}
+                                >
+                                  + Nova demanda filha
+                                </button>
+                              )}
                               <button
                                 className="dep-action-btn dep-action-concluir"
                                 disabled={emAcao}
