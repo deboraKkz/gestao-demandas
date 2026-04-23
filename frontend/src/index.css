@@ -1676,6 +1676,89 @@ textarea.edit-input {
   border-color: rgba(239, 68, 68, 0.42);
 }
 
+/* Referência à demanda filha dentro do card de dep */
+.dep-card-filha {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  background: rgba(99, 102, 241, 0.07);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  transition: background 0.15s;
+}
+.dep-card-filha:hover { background: rgba(99, 102, 241, 0.14); color: var(--text-main); }
+
+/* Referência à filha dentro de detail-dependency (detalhe da mãe) */
+.dep-filha-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.07);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  transition: background 0.15s;
+}
+.dep-filha-link:hover { background: rgba(99, 102, 241, 0.14); color: var(--text-main); }
+
+/* Light mode: botões de ação sóbrios e legíveis */
+.theme-light .dep-card-footer {
+  background: rgba(0,0,0,0.03);
+  border-top-color: var(--border-color);
+}
+
+.theme-light .dep-action-filha {
+  background: transparent;
+  color: #4338CA;
+  border-color: #c7d2fe;
+}
+.theme-light .dep-action-filha:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #818cf8;
+}
+
+.theme-light .dep-action-concluir {
+  background: transparent;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+.theme-light .dep-action-concluir:hover:not(:disabled) {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+}
+
+.theme-light .dep-action-rejeitar {
+  background: transparent;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.theme-light .dep-action-rejeitar:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.theme-light .dep-card-filha {
+  background: #f0f1fe;
+  border-color: #c7d2fe;
+  color: #4338CA;
+}
+.theme-light .dep-card-filha:hover { background: #e0e7ff; color: #3730a3; }
+
+.theme-light .dep-filha-link {
+  background: #f0f1fe;
+  border-color: #c7d2fe;
+  color: #4338CA;
+}
+.theme-light .dep-filha-link:hover { background: #e0e7ff; color: #3730a3; }
+
 /* Banner modo filha em NovaDemanda */
 .dep-filha-banner {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -1702,18 +1785,24 @@ textarea.edit-input {
   font-size: 0.75rem;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 0.2rem 0.6rem;
+  padding: 0.22rem 0.9rem 0.22rem 0.6rem;
   background: rgba(99, 102, 241, 0.08);
   border: 1px solid rgba(99, 102, 241, 0.22);
-  border-radius: 999px;
+  border-radius: 5px;
   font-family: inherit;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 300px;
+  max-width: 340px;
 }
 .detail-mae-badge:hover {
   background: rgba(99, 102, 241, 0.18);
   color: #a5b4fc;
 }
+.theme-light .detail-mae-badge {
+  background: #f0f1fe;
+  border-color: #c7d2fe;
+  color: #4338CA;
+}
+.theme-light .detail-mae-badge:hover { background: #e0e7ff; }

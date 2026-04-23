@@ -407,32 +407,32 @@ export default function DemandaDetalhes() {
           demanda.dependencias?.length ? (
             <div className="detail-dependencies">
               {demanda.dependencias.map(dep => (
-                dep.status === 'concluida' && dep.demanda_filha_id ? (
-                  <div
-                    key={dep.id}
-                    className={`detail-dependency detail-dependency-filha area-card-${dep.coordenadoria_id}`}
-                    onClick={() => navigate(`/demandas/${dep.demanda_filha_id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong>{dep.coordenadoria_nome}</strong>
-                      <span className={`badge badge-status-${(dep.demanda_filha_status || '').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.72rem' }}>
+                <div
+                  key={dep.id}
+                  className={`detail-dependency area-card-${dep.coordenadoria_id}${dep.demanda_filha_id && dep.status === 'concluida' ? ' detail-dependency-filha' : ''}`}
+                  onClick={dep.demanda_filha_id && dep.status === 'concluida' ? () => navigate(`/demandas/${dep.demanda_filha_id}`) : undefined}
+                  style={dep.demanda_filha_id && dep.status === 'concluida' ? { cursor: 'pointer' } : undefined}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong>{dep.coordenadoria_nome}</strong>
+                    <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{formatDate(dep.created_at)}</span>
+                  </div>
+                  {dep.status !== 'concluida' && (
+                    <p style={{ margin: '0.2rem 0 0' }}>{dep.detalhes || 'Sem detalhes informados.'}</p>
+                  )}
+                  {dep.demanda_filha_id && (
+                    <div
+                      className="dep-filha-link"
+                      onClick={dep.status !== 'concluida' ? (e) => { e.stopPropagation(); navigate(`/demandas/${dep.demanda_filha_id}`); } : undefined}
+                      style={dep.status !== 'concluida' ? { cursor: 'pointer' } : undefined}
+                    >
+                      <span className={`badge badge-status-${(dep.demanda_filha_status || '').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.7rem' }}>
                         {dep.demanda_filha_status}
                       </span>
+                      <span>Demanda filha #{dep.demanda_filha_id} — {dep.demanda_filha_titulo}</span>
                     </div>
-                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', opacity: 0.8 }}>
-                      Demanda filha #{dep.demanda_filha_id} — {dep.demanda_filha_titulo}
-                    </p>
-                  </div>
-                ) : (
-                  <div key={dep.id} className={`detail-dependency area-card-${dep.coordenadoria_id}`}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong>{dep.coordenadoria_nome}</strong>
-                      <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{formatDate(dep.created_at)}</span>
-                    </div>
-                    <p>{dep.detalhes || 'Sem detalhes informados.'}</p>
-                  </div>
-                )
+                  )}
+                </div>
               ))}
             </div>
           ) : (
