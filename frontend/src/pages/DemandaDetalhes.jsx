@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import api from '../api';
+import { UserContext } from '../App';
 
 const PRIORIDADES = ['crítica', 'alta', 'média', 'baixa'];
 const CANAIS_ORIGEM = ['SMAX', 'SEI/CPA', 'E-mail', 'Reunião', 'Teams'];
@@ -47,6 +48,7 @@ function labelEvento(tipo, payload) {
 export default function DemandaDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentUser = useContext(UserContext);
 
   const [demanda, setDemanda] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -155,7 +157,7 @@ export default function DemandaDetalhes() {
     setSaving(true);
     setSaveError('');
     try {
-      await api.put(`/demandas/${id}`, editForm);
+      await api.put(`/demandas/${id}`, { ...editForm, usuario_id: currentUser?.id });
       setEditMode(false);
       loadDemanda();
     } catch (err) {

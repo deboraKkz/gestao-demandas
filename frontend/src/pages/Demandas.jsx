@@ -205,7 +205,7 @@ export default function Demandas() {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await api.put(`/demandas/${id}/status`, { status: newStatus });
+      await api.put(`/demandas/${id}/status`, { status: newStatus, usuario_id: currentUser?.id });
       loadData();
     } catch (err) {
       console.error(err);
