@@ -98,7 +98,9 @@ export default function NovaDemanda() {
           coordenadoria_id: dep.coordenadoria_id,
           prioridade: dep.mae_prioridade,
           descricao: dep.detalhes || '',
-          titulo: dep.mae_titulo || '',
+          titulo: '',
+          solicitante: dep.mae_responsavel_nome || '',
+          setor_demandante: dep.mae_responsavel_coordenadoria_nome || '',
         }));
       })
       .catch(err => {

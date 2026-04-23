@@ -942,7 +942,22 @@ app.get('/api/demandas/:id', async (req, res) => {
             ORDER BY he.created_at DESC
         `, [req.params.id]);
 
-        res.json({ ...demandas[0], dependencias, historico_eventos });
+        // Verificar se esta demanda é filha de outra (vinculada via dependencias)
+        const [[maeRow]] = await db.query(`
+            SELECT dep.demanda_id as mae_id, dm.titulo as mae_titulo
+            FROM dependencias dep
+            JOIN demandas dm ON dep.demanda_id = dm.id
+            WHERE dep.demanda_filha_id = ?
+            LIMIT 1
+        `, [req.params.id]);
+
+        res.json({
+            ...demandas[0],
+            dependencias,
+            historico_eventos,
+            demanda_mae_id: maeRow?.mae_id || null,
+            demanda_mae_titulo: maeRow?.mae_titulo || null,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1048,10 +1063,14 @@ app.get('/api/dependencias/:id', async (req, res) => {
         const [[dep]] = await db.query(`
             SELECT dep.id, dep.demanda_id, dep.coordenadoria_id, dep.detalhes, dep.status,
                    c.nome as coordenadoria_nome,
-                   d.id as mae_id, d.titulo as mae_titulo, d.prioridade as mae_prioridade, d.pinned as mae_pinned
+                   d.id as mae_id, d.titulo as mae_titulo, d.prioridade as mae_prioridade, d.pinned as mae_pinned,
+                   ur.nome as mae_responsavel_nome,
+                   uc.nome as mae_responsavel_coordenadoria_nome
             FROM dependencias dep
             JOIN coordenadorias c ON dep.coordenadoria_id = c.id
             JOIN demandas d ON dep.demanda_id = d.id
+            LEFT JOIN usuarios ur ON d.responsavel_id = ur.id
+            LEFT JOIN coordenadorias uc ON ur.coordenadoria_id = uc.id
             WHERE dep.id = ?
         `, [req.params.id]);
         if (!dep) return res.status(404).json({ error: 'Dependência não encontrada' });
@@ -1179,19 +1198,13 @@ app.post('/api/dependencias/:id/demanda-filha', async (req, res) => {
         );
         const filhaId = result.insertId;
 
+        // Vincular a filha à dependência sem fechar — a dep só fecha quando a filha for concluída (cascata)
         await db.query(
-            `UPDATE dependencias SET status = 'concluida', demanda_filha_id = ?, resolvido_em = NOW(), resolvido_por = ? WHERE id = ?`,
-            [filhaId, criador_id, depId]
+            `UPDATE dependencias SET demanda_filha_id = ? WHERE id = ?`,
+            [filhaId, depId]
         );
 
         await registrarEvento(db, { demanda_id: filhaId, tipo: 'criada', usuario_id: criador_id || null });
-
-        await registrarEvento(db, {
-            demanda_id: dep.demanda_id,
-            tipo: 'dependencia_concluida',
-            usuario_id: criador_id || null,
-            payload: { dependencia_id: dep.id, coordenadoria_id: dep.coordenadoria_id, coordenadoria_nome: dep.coordenadoria_nome, demanda_filha_id: filhaId }
-        });
 
         await db.query('COMMIT');
         res.status(201).json({ demanda_filha_id: filhaId });

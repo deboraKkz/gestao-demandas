@@ -119,67 +119,72 @@ export default function Dependencias() {
                   {[...grupo.demandas].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(d => {
                     const emAcao = actionLoading === d.dependencia_id;
                     return (
-                      <div key={d.dependencia_id} className="dep-row">
-                        <div className="dep-row-info">
-                          <span className="dep-pin-slot">{d.pinned ? <PinIcon size={14} /> : null}</span>
-                          <div className="dep-row-content">
-                            <span className="dep-row-titulo">
-                              <span className="demand-id-badge">{d.demanda_id}</span> {d.titulo}
-                            </span>
+                      <div key={d.dependencia_id} className="dep-card">
+                        <div className="dep-card-main">
+                          <div className="dep-card-title-row">
+                            <div className="dep-card-title-group">
+                              {d.pinned && <PinIcon size={13} />}
+                              <span className="demand-id-badge">{d.demanda_id}</span>
+                              <span className="dep-card-titulo">{d.titulo}</span>
+                            </div>
+                            <div className="dep-card-badges">
+                              <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
+                                {PRIORIDADE_LABEL[d.prioridade]?.label || d.prioridade}
+                              </span>
+                              <span className={`badge ${STATUS_LABEL[d.status]}`}>
+                                {d.status}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="dep-card-meta">
                             {d.area_origem_nome && (
-                              <span className="dep-row-origem">de: {d.area_origem_nome}</span>
-                            )}
-                            {d.detalhes && (
-                              <span className="dep-row-detalhes" title={d.detalhes}>
-                                {truncate(d.detalhes)}
+                              <span className="dep-card-meta-item">
+                                <span className="dep-card-meta-label">de</span> {d.area_origem_nome}
                               </span>
                             )}
                             {d.created_at && (
-                              <span className="dep-row-data">cadastrada em {formatDateShort(d.created_at)}</span>
+                              <span className="dep-card-meta-item">
+                                cadastrada em {formatDateShort(d.created_at)}
+                              </span>
                             )}
                           </div>
+                          {d.detalhes && (
+                            <p className="dep-card-detalhes" title={d.detalhes}>
+                              {truncate(d.detalhes)}
+                            </p>
+                          )}
                         </div>
-                        <div className="dep-row-badges">
-                          <span className={`badge ${PRIORIDADE_LABEL[d.prioridade]?.cls}`}>
-                            {PRIORIDADE_LABEL[d.prioridade]?.label || d.prioridade}
-                          </span>
-                          <span className={`badge ${STATUS_LABEL[d.status]}`}>
-                            {d.status}
-                          </span>
+                        <div className="dep-card-footer">
                           <button
-                            className="btn btn-secondary"
-                            style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                            className="dep-btn-link"
                             onClick={() => navigate(`/demandas/${d.demanda_id}`)}
                           >
-                            Detalhes
+                            Ver detalhes →
                           </button>
                           {temPermissao && (
-                            <>
+                            <div className="dep-card-actions">
                               <button
-                                className="btn btn-secondary"
-                                style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                                className="dep-action-btn dep-action-filha"
                                 disabled={emAcao}
                                 onClick={() => handleCadastrarFilha(d)}
                               >
-                                + Nova demanda
+                                + Nova demanda filha
                               </button>
                               <button
-                                className="btn btn-save"
-                                style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                                className="dep-action-btn dep-action-concluir"
                                 disabled={emAcao}
                                 onClick={() => handleConcluir(d)}
                               >
                                 Concluir
                               </button>
                               <button
-                                className="btn btn-danger-outline"
-                                style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
+                                className="dep-action-btn dep-action-rejeitar"
                                 disabled={emAcao}
                                 onClick={() => handleRejeitar(d)}
                               >
                                 Rejeitar
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
                       </div>
