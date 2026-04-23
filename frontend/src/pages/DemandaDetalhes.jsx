@@ -39,7 +39,7 @@ function labelEvento(tipo, payload) {
     case 'priorizacao_rejeitada': return 'Priorização rejeitada';
     case 'dependencia_cadastrada':return `Dependência cadastrada: ${p.coordenadoria_nome || ''}`;
     case 'dependencia_rejeitada': return `Dependência rejeitada: ${p.coordenadoria_nome || ''}`;
-    case 'dependencia_concluida': return `Dependência concluída: ${p.coordenadoria_nome || ''}${p.demanda_filha_id ? ` (filha #${p.demanda_filha_id})` : ''}`;
+    case 'dependencia_concluida': return `Dependência concluída: ${p.coordenadoria_nome || ''}${p.demanda_filha_id ? ` (Demanda ${p.demanda_filha_id})` : ''}`;
     default:                      return tipo;
   }
 }
@@ -203,7 +203,7 @@ export default function DemandaDetalhes() {
                 onClick={() => navigate(`/demandas/${demanda.demanda_mae_id}`)}
                 title={`Ir para a demanda mãe: ${demanda.demanda_mae_titulo}`}
               >
-                ↑ filha de #{demanda.demanda_mae_id} — {demanda.demanda_mae_titulo}
+                ↑ Demanda mãe: {demanda.demanda_mae_id} - {demanda.demanda_mae_titulo}
               </button>
             </>
           )}
@@ -429,7 +429,7 @@ export default function DemandaDetalhes() {
                       <span className={`badge badge-status-${(dep.demanda_filha_status || '').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.7rem' }}>
                         {dep.demanda_filha_status}
                       </span>
-                      <span>Demanda filha #{dep.demanda_filha_id} — {dep.demanda_filha_titulo}</span>
+                      <span>Demanda {dep.demanda_filha_id} — {dep.demanda_filha_titulo}</span>
                     </div>
                   )}
                 </div>
