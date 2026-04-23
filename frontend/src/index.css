@@ -1682,16 +1682,16 @@ textarea.edit-input {
   align-items: center;
   gap: 0.45rem;
   margin-top: 0.45rem;
-  padding: 0.3rem 0.6rem;
+  padding: 0.28rem 0.6rem;
   border-radius: 5px;
-  background: rgba(99, 102, 241, 0.07);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: transparent;
+  border: 1px solid rgba(99, 102, 241, 0.3);
   cursor: pointer;
   font-size: 0.78rem;
   color: var(--text-muted);
-  transition: background 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
-.dep-card-filha:hover { background: rgba(99, 102, 241, 0.14); color: var(--text-main); }
+.dep-card-filha:hover { border-color: rgba(99, 102, 241, 0.6); color: var(--text-main); }
 
 /* Referência à filha dentro de detail-dependency (detalhe da mãe) */
 .dep-filha-link {
@@ -1701,13 +1701,13 @@ textarea.edit-input {
   margin-top: 0.4rem;
   padding: 0.25rem 0.55rem;
   border-radius: 4px;
-  background: rgba(99, 102, 241, 0.07);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: transparent;
+  border: 1px solid rgba(99, 102, 241, 0.3);
   font-size: 0.78rem;
   color: var(--text-muted);
-  transition: background 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
-.dep-filha-link:hover { background: rgba(99, 102, 241, 0.14); color: var(--text-main); }
+.dep-filha-link:hover { border-color: rgba(99, 102, 241, 0.6); color: var(--text-main); }
 
 /* Light mode: botões de ação sóbrios e legíveis */
 .theme-light .dep-card-footer {
@@ -1746,18 +1746,18 @@ textarea.edit-input {
 }
 
 .theme-light .dep-card-filha {
-  background: #f0f1fe;
-  border-color: #c7d2fe;
+  background: transparent;
+  border-color: #a5b4fc;
   color: #4338CA;
 }
-.theme-light .dep-card-filha:hover { background: #e0e7ff; color: #3730a3; }
+.theme-light .dep-card-filha:hover { border-color: #6366f1; color: #3730a3; }
 
 .theme-light .dep-filha-link {
-  background: #f0f1fe;
-  border-color: #c7d2fe;
+  background: transparent;
+  border-color: #a5b4fc;
   color: #4338CA;
 }
-.theme-light .dep-filha-link:hover { background: #e0e7ff; color: #3730a3; }
+.theme-light .dep-filha-link:hover { border-color: #6366f1; color: #3730a3; }
 
 /* Banner modo filha em NovaDemanda */
 .dep-filha-banner {

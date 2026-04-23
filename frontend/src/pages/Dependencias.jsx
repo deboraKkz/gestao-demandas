@@ -105,7 +105,12 @@ export default function Dependencias() {
         </div>
       ) : (
         <div className="dep-grupos">
-          {grupos.map(grupo => {
+          {[...grupos].sort((a, b) => {
+            const userCoord = Number(currentUser?.coordenadoria_id);
+            if (Number(a.coordenadoria_id) === userCoord) return -1;
+            if (Number(b.coordenadoria_id) === userCoord) return 1;
+            return 0;
+          }).map(grupo => {
             const temPermissao = podeAgir(grupo.coordenadoria_id);
             return (
               <div key={grupo.coordenadoria_id} className="dep-grupo">
@@ -118,6 +123,8 @@ export default function Dependencias() {
                 <div className="dep-grupo-list">
                   {[...grupo.demandas].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(d => {
                     const emAcao = actionLoading === d.dependencia_id;
+                    // Filha bloqueante: existe, está ativa e não foi cancelada
+                    const filhaBloqueante = !!d.demanda_filha_id && d.filha_ativo !== 0 && d.filha_status !== 'cancelada';
                     return (
                       <div key={d.dependencia_id} className="dep-card">
                         <div className="dep-card-main">
@@ -174,7 +181,7 @@ export default function Dependencias() {
                           </button>
                           {temPermissao && (
                             <div className="dep-card-actions">
-                              {!d.demanda_filha_id && (
+                              {!filhaBloqueante && (
                                 <button
                                   className="dep-action-btn dep-action-filha"
                                   disabled={emAcao}
@@ -185,14 +192,16 @@ export default function Dependencias() {
                               )}
                               <button
                                 className="dep-action-btn dep-action-concluir"
-                                disabled={emAcao}
+                                disabled={emAcao || filhaBloqueante}
+                                title={filhaBloqueante ? 'Conclua ou cancele a demanda filha para liberar' : undefined}
                                 onClick={() => handleConcluir(d)}
                               >
                                 Concluir
                               </button>
                               <button
                                 className="dep-action-btn dep-action-rejeitar"
-                                disabled={emAcao}
+                                disabled={emAcao || filhaBloqueante}
+                                title={filhaBloqueante ? 'Conclua ou cancele a demanda filha para liberar' : undefined}
                                 onClick={() => handleRejeitar(d)}
                               >
                                 Rejeitar

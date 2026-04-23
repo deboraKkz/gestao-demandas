@@ -1023,7 +1023,7 @@ app.get('/api/dependencias', async (req, res) => {
                    dep.demanda_filha_id,
                    d.id as demanda_id, d.titulo, d.prioridade, d.status, d.pinned,
                    c2.nome as area_origem_nome,
-                   df.titulo as filha_titulo, df.status as filha_status
+                   df.titulo as filha_titulo, df.status as filha_status, df.ativo as filha_ativo
             FROM dependencias dep
             JOIN demandas d ON dep.demanda_id = d.id AND d.ativo = 1
             LEFT JOIN coordenadorias c2 ON d.coordenadoria_id = c2.id
