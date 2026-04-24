@@ -1,0 +1,121 @@
+<div>
+  <h1 class="accent-page-heading" style="margin-bottom:1.5rem">Demandas</h1>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <input type="text" placeholder="Buscar por título..." [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" />
+
+    <select [ngModel]="filterCoordenadoria()" (ngModelChange)="filterCoordenadoria.set($event); applyFilters()">
+      <option value="">Todas as coordenadorias</option>
+      <option *ngFor="let c of coordenadorias()" [value]="c.id">{{ c.nome }}</option>
+    </select>
+
+    <select [ngModel]="filterMacro()" (ngModelChange)="filterMacro.set($event); applyFilters()">
+      <option value="">Todos os macro backlogs</option>
+      <option *ngFor="let m of macroBacklogs()" [value]="m.id">{{ m.nome }}</option>
+    </select>
+
+    <select [ngModel]="filterPrioridade()" (ngModelChange)="filterPrioridade.set($event); applyFilters()">
+      <option value="">Todas as prioridades</option>
+      <option *ngFor="let p of PRIORIDADES" [value]="p">{{ p }}</option>
+    </select>
+
+    <select [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event); applyFilters()">
+      <option value="">Todos os status</option>
+      <option *ngFor="let s of STATUS" [value]="s">{{ s }}</option>
+    </select>
+
+    <button class="btn" [class.btn-active]="showMinhaDemanda()" (click)="toggleMinhaDemanda()">
+      Minhas demandas
+    </button>
+
+    <button class="btn" (click)="clearFilters()">Limpar</button>
+  </div>
+
+  <div *ngIf="loading()" style="color:var(--text-muted);margin-bottom:1rem">Carregando...</div>
+
+  <!-- Pinned section -->
+  <div *ngIf="pinnedDemandas.length > 0" style="margin-bottom:2rem">
+    <h2 class="accent-section-heading" style="margin-bottom:0.75rem">📌 Fixadas</h2>
+    <div
+      class="demand-list"
+      cdkDropList
+      (cdkDropListDropped)="onDrop($event)"
+      [cdkDropListData]="pinnedDemandas">
+      <div
+        *ngFor="let d of pinnedDemandas; trackBy: trackById"
+        cdkDrag
+        class="demand-card is-pinned draggable-item"
+        [class]="areaClass(d.coordenadoria_id) + ' ' + cardStateClass(d)">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="dep-pin-slot"><span class="pin-icon">📌</span></span>
+            <span class="demand-id-badge">#{{ d.id }}</span>
+            {{ d.titulo }}
+          </div>
+          <div class="card-actions">
+            <span class="badge" [class]="priorityClass(d.prioridade)">{{ d.prioridade }}</span>
+            <span class="badge" [class]="statusClass(d.status)">{{ d.status }}</span>
+            <span *ngIf="pendingDepsCount(d) > 0" class="dep-badge">⏳ {{ pendingDepsCount(d) }} dep.</span>
+          </div>
+        </div>
+        <div class="card-body">{{ d.coordenadoria_nome }} · {{ d.macro_backlog_nome }}</div>
+        <div class="card-footer">
+          <div class="card-footer-meta">
+            <span>{{ d.responsavel_nome }}</span>
+            <span *ngIf="d.prazo">· Prazo: {{ d.prazo | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="card-footer-actions">
+            <select class="btn" [ngModel]="d.status" (ngModelChange)="onStatusChange(d, $event)">
+              <option *ngFor="let s of STATUS" [value]="s">{{ s }}</option>
+            </select>
+            <button *ngIf="isDiretor" class="btn btn-unpin" (click)="onPinToggle(d)">Desafixar</button>
+            <button class="btn btn-primary" [routerLink]="['/demandas', d.id]">Ver</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unpinned list -->
+  <div *ngIf="unpinnedDemandas.length > 0">
+    <h2 class="accent-section-heading" style="margin-bottom:0.75rem">Todas as Demandas</h2>
+    <div class="demand-list">
+      <div
+        *ngFor="let d of unpinnedDemandas; trackBy: trackById"
+        class="demand-card"
+        [class]="areaClass(d.coordenadoria_id) + ' ' + cardStateClass(d)">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="dep-pin-slot"></span>
+            <span class="demand-id-badge">#{{ d.id }}</span>
+            {{ d.titulo }}
+          </div>
+          <div class="card-actions">
+            <span class="badge" [class]="priorityClass(d.prioridade)">{{ d.prioridade }}</span>
+            <span class="badge" [class]="statusClass(d.status)">{{ d.status }}</span>
+            <span *ngIf="pendingDepsCount(d) > 0" class="dep-badge">⏳ {{ pendingDepsCount(d) }} dep.</span>
+          </div>
+        </div>
+        <div class="card-body">{{ d.coordenadoria_nome }} · {{ d.macro_backlog_nome }}</div>
+        <div class="card-footer">
+          <div class="card-footer-meta">
+            <span>{{ d.responsavel_nome }}</span>
+            <span *ngIf="d.prazo">· Prazo: {{ d.prazo | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="card-footer-actions">
+            <select class="btn" [ngModel]="d.status" (ngModelChange)="onStatusChange(d, $event)">
+              <option *ngFor="let s of STATUS" [value]="s">{{ s }}</option>
+            </select>
+            <button *ngIf="isDiretor" class="btn btn-pin" (click)="onPinToggle(d)">Fixar</button>
+            <button class="btn btn-primary" [routerLink]="['/demandas', d.id]">Ver</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading() && filteredDemandas.length === 0" style="color:var(--text-muted);text-align:center;padding:3rem">
+    Nenhuma demanda encontrada.
+  </div>
+</div>

@@ -1,0 +1,44 @@
+<div class="app-container">
+  <header>
+    <span class="logo">📋 Gestão de Demandas</span>
+
+    <nav class="main-nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Demandas</a>
+      <a routerLink="/dependencias" routerLinkActive="active">Dependências</a>
+      <a routerLink="/nova-demanda" routerLinkActive="active">Nova Demanda</a>
+      <a *ngIf="isDiretor" routerLink="/priorizacoes" routerLinkActive="active">Priorizações</a>
+
+      <!-- Admin/Diretor dropdown menu -->
+      <div *ngIf="isDiretor" class="header-menu">
+        <button class="hamburger-btn" [class.aberto]="menuOpen()" (click)="toggleMenu()">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div *ngIf="menuOpen()" class="header-dropdown" (click)="closeMenu()">
+          <a routerLink="/macro-backlogs" class="header-dropdown-item" routerLinkActive="ativo">
+            Macro Backlogs
+          </a>
+          <a *ngIf="isAdmin" routerLink="/usuarios" class="header-dropdown-item" routerLinkActive="ativo">
+            Usuários
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="user-selector">
+      <button class="theme-toggle" (click)="toggleTheme()" [title]="theme() === 'theme-dark' ? 'Mudar para claro' : 'Mudar para escuro'">
+        {{ theme() === 'theme-dark' ? '☀️' : '🌙' }}
+      </button>
+      <select [value]="selectedUserId()" (change)="onUserChange($event)">
+        <option *ngFor="let u of users()" [value]="u.id">
+          {{ u.nome }} ({{ u.role }})
+        </option>
+      </select>
+    </div>
+  </header>
+
+  <main>
+    <router-outlet></router-outlet>
+  </main>
+</div>

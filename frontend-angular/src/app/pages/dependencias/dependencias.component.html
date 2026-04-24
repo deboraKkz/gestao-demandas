@@ -1,0 +1,81 @@
+<div class="dependencias-page">
+  <h1 class="dep-page-title">Dependências</h1>
+  <p class="dep-page-subtitle">Dependências pendentes de resposta por área</p>
+
+  <div *ngIf="loading()" style="color:var(--text-muted)">Carregando...</div>
+  <div *ngIf="error()" class="form-error">{{ error() }}</div>
+
+  <div *ngIf="!loading() && pendingGrupos.length === 0" class="dep-empty">
+    <span>✅</span>
+    Nenhuma dependência pendente.
+  </div>
+
+  <div *ngIf="!loading()" class="dep-grupos">
+    <div *ngFor="let grupo of pendingGrupos" class="dep-grupo">
+      <!-- Group header -->
+      <div class="dep-grupo-header" [class]="areaHeaderClass(grupo.coordenadoria_id)">
+        <span class="area-dot" [class]="areaDotClass(grupo.coordenadoria_id)"></span>
+        <h3><strong>{{ grupo.coordenadoria_nome }}</strong></h3>
+        <span class="dep-count">{{ grupo.dependencias.length }}</span>
+      </div>
+
+      <!-- Dependency cards -->
+      <div class="dep-grupo-list">
+        <div *ngFor="let dep of grupo.dependencias" class="dep-card">
+          <div class="dep-card-main">
+            <div class="dep-card-title-row">
+              <div class="dep-card-title-group">
+                <span class="demand-id-badge">#{{ dep.demanda_id }}</span>
+                <span class="dep-card-titulo">{{ dep.demanda_titulo }}</span>
+              </div>
+              <div class="dep-card-badges">
+                <span *ngIf="dep.prioridade" class="badge" [class]="priorityClass(dep.prioridade)">{{ dep.prioridade }}</span>
+              </div>
+            </div>
+
+            <div class="dep-card-meta">
+              <span *ngIf="dep.responsavel_nome" class="dep-card-meta-item">
+                <span class="dep-card-meta-label">Resp.: </span>{{ dep.responsavel_nome }}
+              </span>
+              <span *ngIf="dep.created_at" class="dep-card-meta-item">
+                <span class="dep-card-meta-label">Criada: </span>{{ dep.created_at | date:'dd/MM/yyyy' }}
+              </span>
+            </div>
+
+            <p *ngIf="dep.detalhes" class="dep-card-detalhes">{{ dep.detalhes }}</p>
+
+            <div *ngIf="dep.demanda_filha_id" class="dep-card-filha" [routerLink]="['/demandas', dep.demanda_filha_id]">
+              ↳ Demanda filha #{{ dep.demanda_filha_id }}
+            </div>
+          </div>
+
+          <div class="dep-card-footer">
+            <a class="dep-btn-link" [routerLink]="['/demandas', dep.demanda_id]">Ver demanda →</a>
+            <div class="dep-card-actions">
+              <button
+                *ngIf="!dep.demanda_filha_id"
+                class="dep-action-btn dep-action-filha"
+                [routerLink]="['/nova-demanda']"
+                [queryParams]="{dependencia: dep.id}"
+                [disabled]="isProcessing(dep.id)">
+                + Demanda filha
+              </button>
+              <button
+                class="dep-action-btn dep-action-concluir"
+                [disabled]="isProcessing(dep.id)"
+                (click)="concluir(dep)">
+                {{ isProcessing(dep.id) ? '...' : 'Concluir' }}
+              </button>
+              <button
+                class="dep-action-btn dep-action-rejeitar"
+                [disabled]="isProcessing(dep.id)"
+                (click)="rejeitar(dep)">
+                {{ isProcessing(dep.id) ? '...' : 'Rejeitar' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

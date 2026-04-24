@@ -1,0 +1,188 @@
+<div class="nova-demanda-container">
+  <div class="form-card">
+    <h2 class="form-title">
+      <ng-container *ngIf="depMode(); else normalTitle">
+        Nova Demanda Filha
+      </ng-container>
+      <ng-template #normalTitle>Nova Demanda</ng-template>
+    </h2>
+
+    <!-- Dep mode banner -->
+    <div *ngIf="depMode() && dependencia()" class="dep-filha-banner" style="margin-bottom:1.5rem;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.3);border-radius:8px;padding:0.75rem 1rem;font-size:0.9rem">
+      <strong>Demanda filha para dependência</strong> — Coordenadoria: {{ dependencia()!.coordenadoria_nome }}
+    </div>
+
+    <div *ngIf="error()" class="form-error">{{ error() }}</div>
+
+    <form class="demanda-form" (ngSubmit)="submit()">
+      <!-- Titulo -->
+      <div class="form-group">
+        <label>Título <span style="color:var(--danger)">*</span></label>
+        <input [(ngModel)]="form.titulo" name="titulo" placeholder="Título da demanda" required />
+      </div>
+
+      <!-- Descricao -->
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea [(ngModel)]="form.descricao" name="descricao" rows="4" placeholder="Descreva a demanda..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <!-- Coordenadoria -->
+        <div class="form-group">
+          <label>Coordenadoria</label>
+          <select [(ngModel)]="form.coordenadoria_id" name="coordenadoria_id">
+            <option value="">Selecione...</option>
+            <option *ngFor="let c of coordenadorias()" [value]="c.id">{{ c.nome }}</option>
+          </select>
+        </div>
+
+        <!-- Macro Backlog -->
+        <div class="form-group">
+          <label>Macro Backlog</label>
+          <select [(ngModel)]="form.macro_backlog_id" name="macro_backlog_id">
+            <option value="">Selecione...</option>
+            <option *ngFor="let m of macroBacklogs()" [value]="m.id">{{ m.nome }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <!-- Prioridade -->
+        <div class="form-group">
+          <label>Prioridade</label>
+          <select [(ngModel)]="form.prioridade" name="prioridade">
+            <option *ngFor="let p of PRIORIDADES" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+
+        <!-- Canal de Origem -->
+        <div class="form-group">
+          <label>Canal de Origem</label>
+          <select [(ngModel)]="form.canal_origem" name="canal_origem">
+            <option value="">Selecione...</option>
+            <option *ngFor="let c of CANAIS" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <!-- Solicitante -->
+        <div class="form-group">
+          <label>Solicitante</label>
+          <input [(ngModel)]="form.solicitante" name="solicitante" placeholder="Nome do solicitante" />
+        </div>
+
+        <!-- Setor Demandante -->
+        <div class="form-group">
+          <label>Setor Demandante</label>
+          <input [(ngModel)]="form.setor_demandante" name="setor_demandante" placeholder="Setor" />
+        </div>
+      </div>
+
+      <!-- Responsavel combobox -->
+      <div class="form-group">
+        <label>Responsável</label>
+        <div class="responsavel-combobox">
+          <input
+            [ngModel]="responsavelSearch()"
+            (ngModelChange)="responsavelSearch.set($event); onResponsavelInput()"
+            name="responsavel_search"
+            placeholder="Buscar responsável..."
+            (focus)="responsavelDropdownOpen.set(true)"
+            (blur)="responsavelDropdownOpen.set(false)"
+            autocomplete="off" />
+          <ul *ngIf="responsavelDropdownOpen() && filteredUsuarios.length > 0" class="responsavel-dropdown">
+            <li
+              *ngFor="let u of filteredUsuarios"
+              class="responsavel-option"
+              [class.responsavel-option--current]="selectedResponsavel()?.id === u.id"
+              (mousedown)="selectResponsavel(u)">
+              {{ u.nome }}
+              <span class="responsavel-badge">{{ u.role }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <!-- Domínio -->
+        <div class="form-group">
+          <label>Domínio</label>
+          <select [(ngModel)]="form.dominio" name="dominio">
+            <option value="">Selecione...</option>
+            <option *ngFor="let d of DOMINIOS" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+
+        <!-- Prazo -->
+        <div class="form-group">
+          <label>Prazo</label>
+          <input type="date" [(ngModel)]="form.prazo" name="prazo" />
+        </div>
+      </div>
+
+      <!-- Previsão de Entrega -->
+      <div class="form-group">
+        <label>Previsão de Entrega</label>
+        <input type="date" [(ngModel)]="form.previsao_entrega" name="previsao_entrega" />
+      </div>
+
+      <!-- Dependências (only if not dep mode) -->
+      <div *ngIf="!depMode()" class="form-group">
+        <label>Dependências <span class="label-hint">(selecione as coordenadorias que precisam agir)</span></label>
+        <div class="dependencias-list">
+          <div *ngFor="let dep of depForms; let i = index" class="dep-item dep-item-details">
+            <div class="dep-check-row">
+              <input type="checkbox" [(ngModel)]="dep.selected" [name]="'dep_check_' + i" [id]="'dep_check_' + i" />
+              <label [for]="'dep_check_' + i" style="cursor:pointer;flex:1">
+                <span class="area-dot" [class]="'area-dot-' + dep.coordenadoria_id" style="margin-right:0.5rem;display:inline-block"></span>
+                {{ dep.coordenadoria_nome }}
+              </label>
+            </div>
+            <div *ngIf="dep.selected" style="margin-top:0.5rem;padding-left:1.5rem">
+              <textarea
+                class="dep-item"
+                [(ngModel)]="dep.detalhes"
+                [name]="'dep_detail_' + i"
+                rows="2"
+                placeholder="Detalhes da dependência (opcional)..."
+                style="width:100%"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solicitar Priorização -->
+      <div class="form-group form-group-checkbox">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="form.solicitar_priorizacao" name="solicitar_priorizacao" />
+          <span class="checkbox-text">
+            Solicitar priorização
+            <span class="checkbox-hint">Envia para avaliação dos diretores</span>
+          </span>
+        </label>
+      </div>
+
+      <div *ngIf="form.solicitar_priorizacao">
+        <div class="form-group">
+          <label>Justificativa de Priorização</label>
+          <textarea [(ngModel)]="form.justificativa_priorizacao" name="justificativa_priorizacao" rows="3" placeholder="Justifique a priorização..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Prioridade Solicitada</label>
+          <select [(ngModel)]="form.prioridade_solicitada" name="prioridade_solicitada">
+            <option *ngFor="let p of PRIORIDADES" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" routerLink="/">Cancelar</button>
+        <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+          {{ submitting() ? 'Criando...' : 'Criar Demanda' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

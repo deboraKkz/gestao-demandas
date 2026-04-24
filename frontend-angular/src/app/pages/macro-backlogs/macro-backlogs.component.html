@@ -1,0 +1,111 @@
+<div style="max-width:900px;margin:0 auto">
+  <h1 class="accent-page-heading" style="margin-bottom:1.5rem">Macro Backlogs</h1>
+
+  <div *ngIf="error()" class="form-error" style="margin-bottom:1rem">{{ error() }}</div>
+
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:2rem;align-items:start">
+    <!-- Left: Diretoria selector + create -->
+    <div>
+      <div class="detail-section" style="margin-bottom:1rem">
+        <h3>Diretorias</h3>
+        <div style="display:flex;flex-direction:column;gap:0.4rem">
+          <button
+            *ngFor="let d of diretorias()"
+            class="btn"
+            [class.btn-primary]="selectedDiretoriaId() === d.id"
+            (click)="selectDiretoria(d.id)"
+            style="text-align:left">
+            {{ d.nome }}
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h3>Novo Macro Backlog</h3>
+        <div class="input-row">
+          <input
+            class="edit-input"
+            [ngModel]="newMacroNome()"
+            (ngModelChange)="newMacroNome.set($event)"
+            placeholder="Nome do macro backlog..."
+            (keydown.enter)="createMacro()" />
+        </div>
+        <button class="btn btn-primary" style="margin-top:0.5rem;width:100%" [disabled]="creating()" (click)="createMacro()">
+          {{ creating() ? 'Criando...' : '+ Criar' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Macros for selected diretoria -->
+    <div>
+      <div *ngIf="!selectedDiretoriaId()" style="color:var(--text-muted);padding:2rem;text-align:center">
+        Selecione uma diretoria
+      </div>
+
+      <div *ngIf="selectedDiretoriaId()">
+        <div class="detail-section" style="margin-bottom:1rem">
+          <h3>Macro Backlogs da Diretoria</h3>
+
+          <div *ngIf="loading()" style="color:var(--text-muted)">Carregando...</div>
+
+          <div *ngIf="!loading() && macros().length === 0" class="empty-hint">
+            Nenhum macro backlog nesta diretoria.
+          </div>
+
+          <ul class="macro-list">
+            <li *ngFor="let m of macros()" class="macro-list-item">
+              <ng-container *ngIf="editingId() !== m.id; else editMode">
+                <span>{{ m.nome }}</span>
+                <div style="display:flex;gap:0.4rem">
+                  <button class="btn" style="font-size:0.8rem;padding:0.25rem 0.6rem" (click)="startEdit(m)">Editar</button>
+                  <button class="btn btn-danger-outline" style="font-size:0.8rem;padding:0.25rem 0.6rem" (click)="removeMacroFromDiretoria(m)">Remover</button>
+                </div>
+              </ng-container>
+              <ng-template #editMode>
+                <input
+                  class="edit-input"
+                  style="flex:1;margin-right:0.5rem"
+                  [ngModel]="editNome()"
+                  (ngModelChange)="editNome.set($event)"
+                  (keydown.enter)="saveEdit(m)"
+                  (keydown.escape)="cancelEdit()" />
+                <div style="display:flex;gap:0.4rem">
+                  <button class="btn btn-save" style="font-size:0.8rem;padding:0.25rem 0.6rem" (click)="saveEdit(m)">Salvar</button>
+                  <button class="btn btn-secondary" style="font-size:0.8rem;padding:0.25rem 0.6rem" (click)="cancelEdit()">Cancelar</button>
+                </div>
+              </ng-template>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Add existing macro to diretoria -->
+        <div *ngIf="availableMacros.length > 0" class="detail-section">
+          <h3>Adicionar Macro Backlog Existente</h3>
+          <div class="input-row">
+            <select
+              class="edit-input"
+              [ngModel]="selectedMacroToAdd()"
+              (ngModelChange)="selectedMacroToAdd.set($event)">
+              <option [value]="null">Selecione...</option>
+              <option *ngFor="let m of availableMacros" [value]="m.id">{{ m.nome }}</option>
+            </select>
+            <button class="btn btn-primary" [disabled]="!selectedMacroToAdd()" (click)="addMacroToDiretoria()">
+              Adicionar
+            </button>
+          </div>
+        </div>
+
+        <!-- Coordenadorias info -->
+        <div *ngIf="coordenadorias().length > 0" class="detail-section" style="margin-top:1rem">
+          <h3>Coordenadorias</h3>
+          <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:0.3rem">
+            <li *ngFor="let c of coordenadorias()" style="font-size:0.9rem;color:var(--text-muted)">
+              <span class="area-dot" [class]="'area-dot-' + c.id" style="margin-right:0.5rem;display:inline-block"></span>
+              {{ c.nome }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

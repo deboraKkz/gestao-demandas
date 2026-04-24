@@ -1,0 +1,212 @@
+<div *ngIf="loading()" style="color:var(--text-muted);padding:2rem">Carregando...</div>
+
+<div *ngIf="error() && !loading()" class="form-error">{{ error() }}</div>
+
+<div *ngIf="demanda() && !loading()" class="detail-page">
+  <!-- Back link -->
+  <button class="detail-back-link" routerLink="/">
+    <span class="detail-back-arrow">←</span> Voltar às demandas
+  </button>
+
+  <!-- Header -->
+  <div class="detail-header">
+    <div class="detail-header-meta">
+      <span class="detail-eyebrow">#{{ demanda()!.id }}</span>
+      <span class="detail-eyebrow-sep">·</span>
+      <span class="detail-eyebrow">{{ demanda()!.coordenadoria_nome }}</span>
+      <span *ngIf="demanda()!.demanda_mae_id" class="detail-eyebrow-sep">·</span>
+      <button *ngIf="demanda()!.demanda_mae_id" class="detail-mae-badge" (click)="navigateToMae()">
+        ↑ Demanda mãe #{{ demanda()!.demanda_mae_id }}
+      </button>
+    </div>
+    <h2>{{ demanda()!.titulo }}</h2>
+    <div class="detail-badges">
+      <span class="badge" [class]="priorityClass(demanda()!.prioridade)">{{ demanda()!.prioridade }}</span>
+      <span class="badge" [class]="statusClass(demanda()!.status)">{{ demanda()!.status }}</span>
+      <span *ngIf="demanda()!.flag_priorizacao_solicitada" class="badge" style="background:rgba(245,158,11,0.1);color:var(--warning);border:1px solid var(--warning)">
+        Priorização solicitada
+      </span>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem">
+      <button *ngIf="!editMode()" class="btn btn-primary" (click)="startEdit()">Editar</button>
+      <button *ngIf="!editMode() && !demanda()!.flag_priorizacao_solicitada" class="btn btn-warning" (click)="solicitarPriorizacao()">
+        Solicitar Priorização
+      </button>
+      <button *ngIf="!editMode()" class="btn btn-danger-outline" (click)="deleteDemanda()">Excluir</button>
+    </div>
+  </div>
+
+  <!-- Edit mode -->
+  <div *ngIf="editMode()" class="detail-section">
+    <h3>Editar Demanda</h3>
+    <div *ngIf="error()" class="form-error" style="margin-bottom:1rem">{{ error() }}</div>
+    <div class="detail-edit-grid">
+      <div class="detail-edit-field detail-edit-field-full">
+        <label>Título</label>
+        <input class="edit-input" [(ngModel)]="editForm.titulo" />
+      </div>
+      <div class="detail-edit-field detail-edit-field-full">
+        <label>Descrição</label>
+        <textarea class="edit-input" rows="4" [(ngModel)]="editForm.descricao"></textarea>
+      </div>
+      <div class="detail-edit-field">
+        <label>Coordenadoria</label>
+        <select class="edit-input" [(ngModel)]="editForm.coordenadoria_id">
+          <option *ngFor="let c of coordenadorias()" [value]="c.id">{{ c.nome }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Macro Backlog</label>
+        <select class="edit-input" [(ngModel)]="editForm.macro_backlog_id">
+          <option *ngFor="let m of macroBacklogs()" [value]="m.id">{{ m.nome }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Prioridade</label>
+        <select class="edit-input" [(ngModel)]="editForm.prioridade">
+          <option *ngFor="let p of PRIORIDADES" [value]="p">{{ p }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Status</label>
+        <select class="edit-input" [(ngModel)]="editForm.status">
+          <option *ngFor="let s of STATUS" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Responsável</label>
+        <select class="edit-input" [(ngModel)]="editForm.responsavel_id">
+          <option *ngFor="let u of usuarios()" [value]="u.id">{{ u.nome }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Canal de Origem</label>
+        <select class="edit-input" [(ngModel)]="editForm.canal_origem">
+          <option *ngFor="let c of CANAIS" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Domínio</label>
+        <select class="edit-input" [(ngModel)]="editForm.dominio">
+          <option *ngFor="let d of DOMINIOS" [value]="d">{{ d }}</option>
+        </select>
+      </div>
+      <div class="detail-edit-field">
+        <label>Solicitante</label>
+        <input class="edit-input" [(ngModel)]="editForm.solicitante" />
+      </div>
+      <div class="detail-edit-field">
+        <label>Setor Demandante</label>
+        <input class="edit-input" [(ngModel)]="editForm.setor_demandante" />
+      </div>
+      <div class="detail-edit-field">
+        <label>Prazo</label>
+        <input type="date" class="edit-input" [(ngModel)]="editForm.prazo" />
+      </div>
+      <div class="detail-edit-field">
+        <label>Previsão de Entrega</label>
+        <input type="date" class="edit-input" [(ngModel)]="editForm.previsao_entrega" />
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:1.5rem">
+      <button class="btn btn-save" [disabled]="saving()" (click)="saveEdit()">
+        {{ saving() ? 'Salvando...' : 'Salvar' }}
+      </button>
+      <button class="btn btn-secondary" (click)="cancelEdit()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div *ngIf="!editMode()" class="detail-section">
+    <h3>Descrição</h3>
+    <p class="detail-description">{{ demanda()!.descricao || 'Sem descrição.' }}</p>
+  </div>
+
+  <!-- Details grid -->
+  <div *ngIf="!editMode()" class="detail-section">
+    <h3>Informações</h3>
+    <div class="detail-grid">
+      <div class="detail-field">
+        <span>Coordenadoria</span>
+        <strong>{{ demanda()!.coordenadoria_nome }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Macro Backlog</span>
+        <strong>{{ demanda()!.macro_backlog_nome }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Criador</span>
+        <strong>{{ demanda()!.criador_nome }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Responsável</span>
+        <strong>{{ demanda()!.responsavel_nome }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Canal de Origem</span>
+        <strong>{{ demanda()!.canal_origem || '—' }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Domínio</span>
+        <strong>{{ demanda()!.dominio || '—' }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Solicitante</span>
+        <strong>{{ demanda()!.solicitante || '—' }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Setor Demandante</span>
+        <strong>{{ demanda()!.setor_demandante || '—' }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Prazo</span>
+        <strong>{{ demanda()!.prazo ? (demanda()!.prazo | date:'dd/MM/yyyy') : '—' }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Previsão de Entrega</span>
+        <strong>{{ demanda()!.previsao_entrega ? (demanda()!.previsao_entrega | date:'dd/MM/yyyy') : '—' }}</strong>
+      </div>
+      <div class="detail-field">
+        <span>Criada em</span>
+        <strong>{{ demanda()!.created_at | date:'dd/MM/yyyy HH:mm' }}</strong>
+      </div>
+      <div *ngIf="demanda()!.concluded_at" class="detail-field">
+        <span>Concluída em</span>
+        <strong>{{ demanda()!.concluded_at | date:'dd/MM/yyyy HH:mm' }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dependencies -->
+  <div class="detail-section">
+    <h3>Dependências ({{ demanda()!.dependencias.length }})</h3>
+    <div *ngIf="demanda()!.dependencias.length === 0" class="detail-muted">Sem dependências.</div>
+    <div class="detail-dependencies">
+      <div *ngFor="let dep of demanda()!.dependencias" class="detail-dependency">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+          <strong>{{ dep.coordenadoria_nome }}</strong>
+          <span class="badge" [class]="depStatusClass(dep.status)">{{ dep.status }}</span>
+        </div>
+        <p *ngIf="dep.detalhes">{{ dep.detalhes }}</p>
+        <div *ngIf="dep.demanda_filha_id" class="dep-filha-link" style="cursor:pointer" [routerLink]="['/demandas', dep.demanda_filha_id]">
+          ↳ Demanda filha #{{ dep.demanda_filha_id }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="detail-section">
+    <h3>Histórico ({{ demanda()!.historico.length }})</h3>
+    <div *ngIf="demanda()!.historico.length === 0" class="detail-muted">Sem histórico.</div>
+    <div class="detail-history">
+      <div *ngFor="let ev of demanda()!.historico" class="detail-history-item">
+        <strong>{{ labelEvento(ev) }}</strong>
+        <div style="text-align:right">
+          <span class="detail-muted">{{ ev.usuario_nome }}</span><br>
+          <span class="detail-muted" style="font-size:0.8rem">{{ ev.created_at | date:'dd/MM/yyyy HH:mm' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
