@@ -1,0 +1,26 @@
+// ── Demandas — SCSS variables (hub pattern) ──────────────────────────────────
+// Cor primária institucional do hub
+$primary:        #9a1a1f;
+$primary-hover:  #7a1519;
+$primary-light:  #fff0f0;
+
+// Superfícies
+$bg:             #f8f9fa;
+$card:           #ffffff;
+$border:         #ece3d9;
+
+// Texto
+$text:           #2d2d2d;
+$muted:          #494949;
+$muted-light:    #6b7280;
+
+// Semânticas
+$danger:         #ef4444;
+$success:        #059669;
+$warning:        #f59e0b;
+$info:           #2563eb;
+
+// Áreas (coordenadorias)
+$area-1:         #6366f1;   // indigo — STI 5
+$area-2:         #0ea5e9;   // sky    — STI 5.3
+$area-3:         #10b981;   // emerald — STI 5.4
