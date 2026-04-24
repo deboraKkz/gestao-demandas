@@ -36,18 +36,16 @@ services:
       - /app/node_modules
 
   frontend:
-    build: ./frontend
+    build: ./frontend-angular
     container_name: demandas_frontend
     ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:5000/api
+      - "4200:4200"
     depends_on:
       - backend
     networks:
       - app-network
     volumes:
-      - ./frontend:/app
+      - ./frontend-angular:/app
       - /app/node_modules
 
 volumes:
