@@ -1,0 +1,137 @@
+<div style="max-width:1000px;margin:0 auto">
+  <div class="usuarios-list-header" style="margin-bottom:1.5rem">
+    <h1 class="accent-page-heading" style="margin-bottom:0">
+      Usuários
+      <span class="usuarios-total">({{ total() }})</span>
+    </h1>
+    <input
+      class="usuarios-search"
+      type="text"
+      placeholder="Buscar usuários..."
+      [ngModel]="search()"
+      (ngModelChange)="onSearch($event)" />
+    <button class="btn btn-primary" (click)="toggleShowCreate()">
+      {{ showCreate() ? 'Cancelar' : '+ Novo Usuário' }}
+    </button>
+  </div>
+
+  <div *ngIf="error()" class="form-error" style="margin-bottom:1rem">{{ error() }}</div>
+
+  <!-- Create form -->
+  <div *ngIf="showCreate()" class="detail-section" style="margin-bottom:1.5rem">
+    <h3>Novo Usuário</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="form-group" style="margin:0">
+        <label>Nome</label>
+        <input [(ngModel)]="newUser.nome" placeholder="Nome completo" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Email</label>
+        <input type="email" [(ngModel)]="newUser.email" placeholder="email@example.com" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Papel</label>
+        <select [(ngModel)]="newUser.role">
+          <option *ngFor="let r of ROLES" [value]="r">{{ r }}</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Coordenadoria</label>
+        <select [(ngModel)]="newUser.coordenadoria_id">
+          <option value="">Selecione...</option>
+          <option *ngFor="let c of coordenadorias()" [value]="c.id">{{ c.nome }}</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:1rem">
+      <button class="btn btn-primary" [disabled]="creating()" (click)="createUser()">
+        {{ creating() ? 'Criando...' : 'Criar Usuário' }}
+      </button>
+      <button class="btn btn-secondary" (click)="showCreate.set(false)">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Users table -->
+  <div *ngIf="loading()" style="color:var(--text-muted)">Carregando...</div>
+
+  <div *ngIf="!loading()" class="usuarios-table-wrapper">
+    <table class="usuarios-table">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Email</th>
+          <th>Papel</th>
+          <th>Coordenadoria</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let u of usuarios()">
+          <!-- Normal row -->
+          <tr *ngIf="editingId() !== u.id" class="usuarios-row" [class.usuarios-row--inativo]="!u.ativo">
+            <td>
+              <div class="usuarios-cell-nome">
+                {{ u.nome }}
+                <span *ngIf="!u.ativo" class="badge-inativo">inativo</span>
+              </div>
+            </td>
+            <td class="usuarios-cell-muted">{{ u.email }}</td>
+            <td><span [class]="roleClass(u.role)">{{ u.role }}</span></td>
+            <td class="usuarios-cell-muted">{{ u.coordenadoria_nome || '—' }}</td>
+            <td>
+              <span *ngIf="u.ativo" style="color:var(--success);font-size:0.85rem">● Ativo</span>
+              <span *ngIf="!u.ativo" style="color:var(--text-muted);font-size:0.85rem">● Inativo</span>
+            </td>
+            <td>
+              <div class="usuarios-acoes">
+                <button class="btn" style="font-size:0.8rem;padding:0.25rem 0.6rem" (click)="startEdit(u)">Editar</button>
+                <button *ngIf="u.ativo" class="btn btn-danger-outline" style="font-size:0.8rem;padding:0.25rem 0.6rem" (click)="inactivate(u)">Inativar</button>
+                <button *ngIf="!u.ativo" class="btn btn-success" style="font-size:0.8rem;padding:0.25rem 0.6rem;color:#fff" (click)="reactivate(u)">Reativar</button>
+              </div>
+            </td>
+          </tr>
+          <!-- Edit row -->
+          <tr *ngIf="editingId() === u.id" class="usuarios-edit-row">
+            <td colspan="6">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;align-items:end">
+                <div>
+                  <label class="form-section-label">Nome</label>
+                  <input class="edit-input" [(ngModel)]="editForm.nome" />
+                </div>
+                <div>
+                  <label class="form-section-label">Email</label>
+                  <input type="email" class="edit-input" [(ngModel)]="editForm.email" />
+                </div>
+                <div>
+                  <label class="form-section-label">Papel</label>
+                  <select class="edit-input" [(ngModel)]="editForm.role">
+                    <option *ngFor="let r of ROLES" [value]="r">{{ r }}</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-section-label">Coordenadoria</label>
+                  <select class="edit-input" [(ngModel)]="editForm.coordenadoria_id">
+                    <option value="">—</option>
+                    <option *ngFor="let c of coordenadorias()" [value]="c.id">{{ c.nome }}</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+                <button class="btn btn-save" style="font-size:0.85rem" (click)="saveEdit(u)">Salvar</button>
+                <button class="btn btn-secondary" style="font-size:0.85rem" (click)="cancelEdit()">Cancelar</button>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div *ngIf="totalPages() > 1" class="usuarios-pagination">
+    <button class="btn" [disabled]="page() === 1" (click)="prevPage()">← Anterior</button>
+    <span class="usuarios-page-info">Página {{ page() }} de {{ totalPages() }}</span>
+    <button class="btn" [disabled]="page() === totalPages()" (click)="nextPage()">Próxima →</button>
+  </div>
+</div>

@@ -1,0 +1,57 @@
+<div style="max-width:800px;margin:0 auto">
+  <h1 class="accent-page-heading" style="margin-bottom:0.5rem">Priorizações</h1>
+  <p style="color:var(--text-muted);margin-bottom:2rem">Solicitações de priorização pendentes de aprovação</p>
+
+  <div *ngIf="loading()" style="color:var(--text-muted)">Carregando...</div>
+  <div *ngIf="error()" class="form-error">{{ error() }}</div>
+
+  <div *ngIf="!loading() && pendingPriorizacoes.length === 0" style="text-align:center;padding:4rem;color:var(--text-muted)">
+    <div style="font-size:2.5rem;margin-bottom:1rem">✅</div>
+    Nenhuma solicitação de priorização pendente.
+  </div>
+
+  <div class="demand-list">
+    <div *ngFor="let p of pendingPriorizacoes" class="demand-card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="demand-id-badge">#{{ p.demanda_id }}</span>
+          {{ p.demanda_titulo }}
+        </div>
+        <div class="card-actions">
+          <span *ngIf="p.prioridade_solicitada" class="badge" [class]="priorityClass(p.prioridade_solicitada)">
+            → {{ p.prioridade_solicitada }}
+          </span>
+        </div>
+      </div>
+
+      <div class="card-body" style="margin-top:0.25rem">
+        <strong>Solicitante:</strong> {{ p.solicitante_nome }}
+      </div>
+
+      <div *ngIf="p.justificativa" class="card-body" style="margin-top:0.25rem;font-style:italic">
+        "{{ p.justificativa }}"
+      </div>
+
+      <div class="card-footer">
+        <div class="card-footer-meta">
+          <span style="font-size:0.8rem">{{ p.created_at | date:'dd/MM/yyyy HH:mm' }}</span>
+        </div>
+        <div class="card-footer-actions">
+          <a class="btn" style="font-size:0.85rem" [routerLink]="['/demandas', p.demanda_id]">Ver demanda</a>
+          <button
+            class="btn btn-success"
+            [disabled]="isProcessing(p.id)"
+            (click)="decidir(p, true)">
+            {{ isProcessing(p.id) ? '...' : '✓ Aprovar' }}
+          </button>
+          <button
+            class="btn btn-danger"
+            [disabled]="isProcessing(p.id)"
+            (click)="decidir(p, false)">
+            {{ isProcessing(p.id) ? '...' : '✗ Rejeitar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
