@@ -931,8 +931,7 @@ main {
 }
 
 // Table column sizing
-.col-drag  { width: 28px !important; padding: 0 6px !important; }
-.col-pin   { width: 28px !important; padding: 0 6px !important; }
+.col-drag  { width: 32px !important; padding: 0 8px !important; }
 .col-titulo { min-width: 220px; }
 .col-justificativa { min-width: 180px; max-width: 260px; }
 .col-obs   { min-width: 180px; max-width: 240px; }
@@ -955,28 +954,19 @@ thead .col-actions { background: #fafafa; }
 .cell-success { color: var(--dem-success) !important; }
 .cell-actions { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
 
-// ── Drag handle ───────────────────────────────────────────────────────────────
+// ── Drag handle (three-line / hamburger icon) ─────────────────────────────────
 .drag-handle {
   display: inline-flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 3px;
-  width: 16px;
   cursor: grab;
   color: var(--dem-soft);
-  padding: 4px 0;
-  opacity: 0.5;
-  transition: opacity .15s;
+  opacity: 0.45;
+  transition: opacity .15s, color .15s;
+  user-select: none;
 
   &:hover { opacity: 1; color: var(--dem-muted); }
   &:active { cursor: grabbing; opacity: 1; }
-
-  span {
-    display: block;
-    height: 2px;
-    background: currentColor;
-    border-radius: 2px;
-  }
 }
 
 // ── ID chip ───────────────────────────────────────────────────────────────────
@@ -991,6 +981,11 @@ thead .col-actions { background: #fafafa; }
   border-radius: 4px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+
+  &.id-chip-pinned {
+    background: var(--dem-primary-light);
+    color: var(--dem-primary);
+  }
 }
 
 .titulo-link {
@@ -1075,6 +1070,12 @@ thead .col-actions { background: #fafafa; }
     color: var(--dem-primary);
     border-color: var(--dem-primary-light);
   }
+
+  &.icon-btn-active {
+    color: var(--dem-primary);
+    background: var(--dem-primary-light);
+    border-color: transparent;
+  }
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────
@@ -1114,32 +1115,23 @@ thead .col-actions { background: #fafafa; }
 // ── Cards ─────────────────────────────────────────────────────────────────────
 .dem-cards {
   padding: 16px;
+}
+
+.dem-cards-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.dem-cards-section-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--dem-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 4px 0 8px;
-  color: var(--dem-primary);
-}
-
+// Card: drag handle on left + content body
 .dem-card {
   background: #fff;
   border: 1px solid var(--dem-border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: stretch;
+  gap: 8px;
   transition: box-shadow .15s, border-color .15s;
 
   &:hover {
@@ -1149,13 +1141,28 @@ thead .col-actions { background: #fafafa; }
 
   &.dem-card-pinned {
     border-left: 3px solid var(--dem-primary);
-    padding-left: 11px;
+    padding-left: 9px;
   }
 
   &.dem-card-completed {
     background: #fafafa;
     opacity: 0.85;
   }
+
+  // CDK drag handle sits in the flex row
+  > .drag-handle {
+    flex-shrink: 0;
+    align-self: center;
+    padding: 4px 2px;
+  }
+}
+
+.dem-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .dem-card-row {
@@ -1201,9 +1208,23 @@ thead .col-actions { background: #fafafa; }
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding-left: 2px;
 
   .sep { color: var(--dem-soft); }
+}
+
+// CDK drag placeholder — keeps height while dragging
+.dem-card-placeholder {
+  border: 2px dashed var(--dem-border);
+  border-radius: 10px;
+  background: var(--dem-primary-soft);
+  height: 52px;
+  margin-bottom: 0;
+}
+
+// CDK drag preview
+.cdk-drag-preview.dem-card {
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  opacity: 0.9;
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────

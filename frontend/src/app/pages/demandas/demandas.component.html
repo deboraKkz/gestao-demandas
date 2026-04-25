@@ -94,7 +94,9 @@
 
       <span class="dem-result-count">
         <span *ngIf="loading()">Carregando...</span>
-        <span *ngIf="!loading()">{{ filteredAndSorted().length }} resultado{{ filteredAndSorted().length !== 1 ? 's' : '' }}</span>
+        <span *ngIf="!loading()">
+          {{ filteredAndSorted().length }} resultado{{ filteredAndSorted().length !== 1 ? 's' : '' }}
+        </span>
       </span>
     </div>
 
@@ -105,7 +107,6 @@
           <thead>
             <tr>
               <th class="col-drag"></th>
-              <th class="col-pin"></th>
               <th class="sortable" (click)="toggleSort('id')">
                 ID
                 <span class="sort-ic" *ngIf="sortKey() === 'id'">{{ sortDir() === 'asc' ? '▲' : '▼' }}</span>
@@ -158,29 +159,27 @@
               [class.row-completed]="isCompleted(d)"
               [class.is-dragging]="dragId() === d.id"
               [class.drag-over]="dragOverId() === d.id && dragId() !== d.id"
-              [draggable]="canReorder && d.pinned"
-              (dragstart)="canReorder && d.pinned ? onRowDragStart($event, d) : null"
+              draggable="true"
+              (dragstart)="onRowDragStart($event, d)"
               (dragover)="onRowDragOver($event, d)"
               (drop)="onRowDrop($event, d)"
               (dragend)="onRowDragEnd()">
 
-              <!-- Drag handle -->
+              <!-- Drag handle — three horizontal lines (always visible) -->
               <td class="col-drag">
-                <span *ngIf="canReorder && d.pinned" class="drag-handle" title="Arrastar para reordenar">
-                  <span></span><span></span><span></span>
+                <span class="drag-handle" title="Arrastar para reordenar">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="8"  x2="20" y2="8"/>
+                    <line x1="4" y1="12" x2="20" y2="12"/>
+                    <line x1="4" y1="16" x2="20" y2="16"/>
+                  </svg>
                 </span>
               </td>
 
-              <!-- Pin -->
-              <td class="col-pin">
-                <svg *ngIf="d.pinned" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                  fill="currentColor" style="color:var(--dem-primary)">
-                  <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
-                </svg>
-              </td>
-
-              <!-- ID -->
-              <td><span class="id-chip">#{{ d.id }}</span></td>
+              <!-- ID (pinned items get a left border via CSS) -->
+              <td><span class="id-chip" [class.id-chip-pinned]="d.pinned">#{{ d.id }}</span></td>
 
               <!-- Data entrada -->
               <td class="cell-muted cell-nowrap">{{ fmtDate(d.created_at) }}</td>
@@ -269,7 +268,7 @@
                 </button>
                 <button *ngIf="isDiretor" class="icon-btn"
                   [title]="d.pinned ? 'Desafixar' : 'Fixar'"
-                  [style.color]="d.pinned ? 'var(--dem-primary)' : ''"
+                  [class.icon-btn-active]="d.pinned"
                   (click)="onPinToggle(d)">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -304,127 +303,77 @@
     <!-- ── CARD VIEW ───────────────────────────────────────── -->
     <ng-container *ngIf="view() === 'card'">
       <div class="dem-cards">
-
-        <!-- Pinned section (draggable) -->
-        <ng-container *ngIf="pinnedForReorder.length > 0 && (tab() === 'todas' || tab() === 'fixadas')">
-          <div class="dem-cards-section-label">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="17" x2="12" y2="22"/>
-              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-            </svg>
-            Fixadas
-          </div>
+        <ng-container *ngIf="filteredAndSorted().length > 0; else emptyState">
+          <!-- Single CDK drop list containing ALL filtered cards (pinned + unpinned) -->
           <div
             cdkDropList
             (cdkDropListDropped)="onDrop($event)"
-            [cdkDropListData]="pinnedForReorder">
+            [cdkDropListData]="filteredAndSorted()"
+            class="dem-cards-list">
             <div
-              *ngFor="let d of pinnedForReorder; trackBy: trackById"
+              *ngFor="let d of filteredAndSorted(); trackBy: trackById"
               cdkDrag
-              [cdkDragDisabled]="!canReorder"
-              class="dem-card dem-card-pinned"
+              class="dem-card"
+              [class.dem-card-pinned]="d.pinned"
               [class.dem-card-completed]="isCompleted(d)">
-              <div class="dem-card-row">
-                <span *ngIf="canReorder" class="drag-handle" cdkDragHandle>
-                  <span></span><span></span><span></span>
-                </span>
-                <span class="id-chip">#{{ d.id }}</span>
-                <div class="dem-card-title">
-                  <a [routerLink]="['/demandas', d.id]">{{ d.titulo }}</a>
+
+              <!-- CDK drag handle: three-line icon -->
+              <span class="drag-handle" cdkDragHandle title="Arrastar para reordenar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="8"  x2="20" y2="8"/>
+                  <line x1="4" y1="12" x2="20" y2="12"/>
+                  <line x1="4" y1="16" x2="20" y2="16"/>
+                </svg>
+              </span>
+
+              <div class="dem-card-body">
+                <div class="dem-card-row">
+                  <span class="id-chip" [class.id-chip-pinned]="d.pinned">#{{ d.id }}</span>
+                  <div class="dem-card-title">
+                    <a [routerLink]="['/demandas', d.id]">{{ d.titulo }}</a>
+                  </div>
+                  <div class="dem-card-badges">
+                    <span class="badge" [ngClass]="priorityClass(d.prioridade)">{{ d.prioridade }}</span>
+                    <span class="badge" [ngClass]="statusClass(d.status)">{{ d.status }}</span>
+                    <span *ngIf="pendingDepsCount(d) > 0" class="badge b-warn">⏳ {{ pendingDepsCount(d) }} dep.</span>
+                  </div>
+                  <div class="dem-card-actions">
+                    <button *ngIf="isDiretor" class="icon-btn"
+                      [title]="d.pinned ? 'Desafixar' : 'Fixar'"
+                      [class.icon-btn-active]="d.pinned"
+                      (click)="onPinToggle(d)">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="17" x2="12" y2="22"/>
+                        <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+                      </svg>
+                    </button>
+                    <button class="icon-btn" [routerLink]="['/demandas', d.id]" title="Visualizar">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div class="dem-card-badges">
-                  <span class="badge" [ngClass]="priorityClass(d.prioridade)">{{ d.prioridade }}</span>
-                  <span class="badge" [ngClass]="statusClass(d.status)">{{ d.status }}</span>
-                  <span *ngIf="pendingDepsCount(d) > 0" class="badge b-warn">⏳ {{ pendingDepsCount(d) }} dep.</span>
-                </div>
-                <div class="dem-card-actions">
-                  <button *ngIf="isDiretor" class="icon-btn" title="Desafixar" (click)="onPinToggle(d)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="12" y1="17" x2="12" y2="22"/>
-                      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-                    </svg>
-                  </button>
-                  <button class="icon-btn" [routerLink]="['/demandas', d.id]" title="Visualizar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div class="dem-card-meta">
-                <span>{{ d.coordenadoria_nome }}</span>
-                <span class="sep">·</span>
-                <span>{{ d.macro_backlog_nome }}</span>
-                <span class="sep">·</span>
-                <span>{{ d.responsavel_nome }}</span>
-                <ng-container *ngIf="d.previsao_entrega || d.prazo">
+                <div class="dem-card-meta">
+                  <span>{{ d.coordenadoria_nome }}</span>
                   <span class="sep">·</span>
-                  <span>Prazo: {{ fmtDate(d.previsao_entrega || d.prazo) }}</span>
-                </ng-container>
+                  <span>{{ d.macro_backlog_nome }}</span>
+                  <span class="sep">·</span>
+                  <span>{{ d.responsavel_nome }}</span>
+                  <ng-container *ngIf="d.previsao_entrega || d.prazo">
+                    <span class="sep">·</span>
+                    <span>Prazo: {{ fmtDate(d.previsao_entrega || d.prazo) }}</span>
+                  </ng-container>
+                </div>
               </div>
-            </div>
-          </div>
-        </ng-container>
 
-        <!-- Regular (unpinned) cards -->
-        <ng-container *ngIf="tab() !== 'fixadas'">
-          <div class="dem-cards-section-label" *ngIf="pinnedForReorder.length > 0">
-            Todas as demandas
-          </div>
-          <ng-container *ngFor="let d of unpinnedDemandas; trackBy: trackById">
-          <div
-            class="dem-card"
-            [class.dem-card-completed]="isCompleted(d)">
-            <div class="dem-card-row">
-              <span class="id-chip">#{{ d.id }}</span>
-              <div class="dem-card-title">
-                <a [routerLink]="['/demandas', d.id]">{{ d.titulo }}</a>
-              </div>
-              <div class="dem-card-badges">
-                <span class="badge" [ngClass]="priorityClass(d.prioridade)">{{ d.prioridade }}</span>
-                <span class="badge" [ngClass]="statusClass(d.status)">{{ d.status }}</span>
-                <span *ngIf="pendingDepsCount(d) > 0" class="badge b-warn">⏳ {{ pendingDepsCount(d) }} dep.</span>
-              </div>
-              <div class="dem-card-actions">
-                <button *ngIf="isDiretor" class="icon-btn" title="Fixar" (click)="onPinToggle(d)">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="17" x2="12" y2="22"/>
-                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-                  </svg>
-                </button>
-                <button class="icon-btn" [routerLink]="['/demandas', d.id]" title="Visualizar">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
-              </div>
+              <!-- CDK drag preview placeholder -->
+              <div *cdkDragPlaceholder class="dem-card-placeholder"></div>
             </div>
-            <div class="dem-card-meta">
-              <span>{{ d.coordenadoria_nome }}</span>
-              <span class="sep">·</span>
-              <span>{{ d.macro_backlog_nome }}</span>
-              <span class="sep">·</span>
-              <span>{{ d.responsavel_nome }}</span>
-              <ng-container *ngIf="d.previsao_entrega || d.prazo">
-                <span class="sep">·</span>
-                <span>Prazo: {{ fmtDate(d.previsao_entrega || d.prazo) }}</span>
-              </ng-container>
-            </div>
-          </div>
-          </ng-container><!-- /ngFor unpinned -->
-        </ng-container><!-- /ngIf not fixadas -->
-
-        <!-- Fixadas tab: show all pinned (already in cdkDropList above) -->
-        <ng-container *ngIf="tab() === 'fixadas' && pinnedForReorder.length === 0">
-          <div class="dem-empty">
-            <div class="dem-empty-icon">📌</div>
-            <h3>Nenhuma demanda fixada</h3>
-            <p>Fixe demandas clicando no ícone de pino.</p>
           </div>
         </ng-container>
       </div>

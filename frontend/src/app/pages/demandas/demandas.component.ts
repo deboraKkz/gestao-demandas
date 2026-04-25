@@ -57,6 +57,8 @@ export class DemandasComponent implements OnInit {
 
   view = signal<'card' | 'table'>('table');
   tab = signal<'todas' | 'minhas' | 'fixadas'>('todas');
+
+  // All filters are now CLIENT-SIDE — no server round-trip on filter change
   filterCoordenadoria = signal('');
   filterMacro = signal('');
   filterPrioridade = signal('');
@@ -69,6 +71,9 @@ export class DemandasComponent implements OnInit {
   sortKey = signal('id');
   sortDir = signal<'asc' | 'desc'>('asc');
 
+  // Custom drag order: maps demand id → sort index (overrides column sort)
+  customOrderMap = signal<Map<number, number>>(new Map());
+
   // Table drag state (HTML5)
   dragId = signal<number | null>(null);
   dragOverId = signal<number | null>(null);
@@ -77,6 +82,7 @@ export class DemandasComponent implements OnInit {
   readonly STATUS = ['pendente', 'em andamento', 'em revisão', 'concluída', 'cancelada', 'suspensa'];
 
   ngOnInit(): void {
+    // Read initial filters from URL
     const qp = this.route.snapshot.queryParamMap;
     if (qp.get('coordenadoria_id')) this.filterCoordenadoria.set(qp.get('coordenadoria_id')!);
     if (qp.get('macro_backlog_id')) this.filterMacro.set(qp.get('macro_backlog_id')!);
@@ -85,22 +91,23 @@ export class DemandasComponent implements OnInit {
     this.loadData();
   }
 
+  // Always loads ALL demands — filtering is 100% client-side
   loadData(): void {
     this.loading.set(true);
-    const params: Record<string, string> = {};
-    if (this.filterCoordenadoria()) params['coordenadoria_id'] = this.filterCoordenadoria();
-    if (this.filterMacro()) params['macro_backlog_id'] = this.filterMacro();
-    if (this.filterPrioridade()) params['prioridade'] = this.filterPrioridade();
-    if (this.filterStatus()) params['status'] = this.filterStatus();
-
-    this.api.get<Demanda[]>('/demandas', params).subscribe({
-      next: (list) => { this.demandas.set(list); this.loading.set(false); },
+    this.api.get<Demanda[]>('/demandas').subscribe({
+      next: (list) => {
+        this.demandas.set(list);
+        this.loading.set(false);
+        // Reset drag order when data reloads
+        this.customOrderMap.set(new Map());
+      },
       error: () => this.loading.set(false)
     });
     this.api.get<Coordenadoria[]>('/coordenadorias').subscribe({ next: (c) => this.coordenadorias.set(c) });
     this.api.get<MacroBacklog[]>('/macro-backlogs').subscribe({ next: (m) => this.macroBacklogs.set(m) });
   }
 
+  // Update URL params only — no server reload needed
   applyFilters(): void {
     this.currentPage.set(1);
     const qp: Record<string, string> = {};
@@ -109,7 +116,6 @@ export class DemandasComponent implements OnInit {
     if (this.filterPrioridade()) qp['prioridade'] = this.filterPrioridade();
     if (this.filterStatus()) qp['status'] = this.filterStatus();
     this.router.navigate([], { queryParams: qp });
-    this.loadData();
   }
 
   clearFilters(): void {
@@ -121,7 +127,6 @@ export class DemandasComponent implements OnInit {
     this.tab.set('todas');
     this.currentPage.set(1);
     this.router.navigate([], { queryParams: {} });
-    this.loadData();
   }
 
   setTab(t: 'todas' | 'minhas' | 'fixadas'): void {
@@ -142,29 +147,52 @@ export class DemandasComponent implements OnInit {
       this.sortDir.set('asc');
     }
     this.currentPage.set(1);
+    this.customOrderMap.set(new Map()); // Column sort overrides drag order
   }
 
+  // All filtering + sorting in one computed — fully client-side
   filteredAndSorted = computed(() => {
     let list = this.demandas();
     const tab = this.tab();
     const uid = this.userService.currentUser()?.id;
 
+    // Tab filter
     if (tab === 'minhas') list = list.filter(d => d.responsavel_id === uid || d.criador_id === uid);
     if (tab === 'fixadas') list = list.filter(d => d.pinned);
 
+    // Text search
     const search = this.searchText().toLowerCase();
     if (search) list = list.filter(d =>
       d.titulo.toLowerCase().includes(search) || String(d.id).includes(search)
     );
 
+    // Dropdown filters (client-side)
+    const fc = this.filterCoordenadoria();
+    const fm = this.filterMacro();
+    const fp = this.filterPrioridade();
+    const fs = this.filterStatus();
+    if (fc) list = list.filter(d => String(d.coordenadoria_id) === String(fc));
+    if (fm) list = list.filter(d => String(d.macro_backlog_id) === String(fm));
+    if (fp) list = list.filter(d => d.prioridade === fp);
+    if (fs) list = list.filter(d => d.status === fs);
+
+    // Sort
     const key = this.sortKey();
     const dir = this.sortDir() === 'asc' ? 1 : -1;
+    const orderMap = this.customOrderMap();
 
     return [...list].sort((a, b) => {
+      // Pinned items always float to top
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      if (a.pinned && b.pinned && key === 'id') {
-        return ((a.pin_order ?? 0) - (b.pin_order ?? 0));
+
+      // Custom drag order overrides column sort
+      if (orderMap.size > 0) {
+        const oa = orderMap.has(a.id) ? orderMap.get(a.id)! : Infinity;
+        const ob = orderMap.has(b.id) ? orderMap.get(b.id)! : Infinity;
+        if (oa !== ob) return oa - ob;
       }
+
+      // Column sort
       const va = (a as any)[key];
       const vb = (b as any)[key];
       if (va == null) return 1;
@@ -189,75 +217,95 @@ export class DemandasComponent implements OnInit {
 
   pinnedCount = computed(() => this.demandas().filter(d => d.pinned).length);
 
-  get pinnedForReorder(): Demanda[] {
-    return this.filteredAndSorted()
-      .filter(d => d.pinned)
-      .sort((a, b) => (a.pin_order ?? 0) - (b.pin_order ?? 0));
-  }
-
-  get unpinnedDemandas(): Demanda[] {
-    return this.filteredAndSorted().filter(d => !d.pinned);
-  }
-
-  get canReorder(): boolean {
-    return this.isDiretor && this.tab() === 'fixadas';
-  }
-
   get isDiretor(): boolean {
     const role = this.userService.currentUser()?.role;
     return role === 'diretor' || role === 'admin';
   }
 
+  // ── Pin toggle ─────────────────────────────────────────────────────────────
+  // Optimistic update: toggle locally first, then sync with server.
+  // (Backend returns { success, pinned }, NOT the full Demanda object)
+  onPinToggle(demanda: Demanda): void {
+    const newPinned = !demanda.pinned;
+    const currentPinnedCount = this.demandas().filter(d => d.pinned).length;
+    this.demandas.update(list =>
+      list.map(d => d.id === demanda.id
+        ? { ...d, pinned: newPinned, pin_order: newPinned ? currentPinnedCount + 1 : 0 }
+        : d
+      )
+    );
+    this.api.put<any>(`/demandas/${demanda.id}/pin`, {}).subscribe({
+      error: () => {
+        // Revert on server error
+        this.demandas.update(list => list.map(d => d.id === demanda.id ? { ...demanda } : d));
+      }
+    });
+  }
+
+  // ── Status change ──────────────────────────────────────────────────────────
   onStatusChange(demanda: Demanda, newStatus: string): void {
     const uid = this.userService.currentUser()?.id;
     this.api.put<Demanda>(`/demandas/${demanda.id}/status`, { status: newStatus, usuario_id: uid }).subscribe({
-      next: (updated) => this.demandas.update(list => list.map(d => d.id === updated.id ? updated : d))
+      next: (updated) => {
+        if (updated?.id) {
+          this.demandas.update(list => list.map(d => d.id === updated.id ? updated : d));
+        } else {
+          // Fallback: update status optimistically
+          this.demandas.update(list => list.map(d => d.id === demanda.id ? { ...d, status: newStatus } : d));
+        }
+      }
     });
   }
 
-  onPinToggle(demanda: Demanda): void {
-    this.api.put<Demanda>(`/demandas/${demanda.id}/pin`, {}).subscribe({
-      next: (updated) => this.demandas.update(list => list.map(d => d.id === updated.id ? updated : d))
-    });
+  // ── Drag reorder: shared logic ─────────────────────────────────────────────
+  private applyReorder(fromId: number, toId: number): void {
+    const all = this.filteredAndSorted();
+    const fromIdx = all.findIndex(x => x.id === fromId);
+    const toIdx = all.findIndex(x => x.id === toId);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+
+    const reordered = [...all];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    // Store custom order
+    const newMap = new Map<number, number>();
+    reordered.forEach((d, i) => newMap.set(d.id, i));
+    this.customOrderMap.set(newMap);
+
+    // Persist pinned order to server
+    const pinnedInOrder = reordered.filter(d => d.pinned);
+    if (pinnedInOrder.length > 0) {
+      const orderItems = pinnedInOrder.map((d, i) => ({ id: d.id, pin_order: i + 1 }));
+      this.api.put<void>('/demandas/reorder', { orderItems }).subscribe();
+    }
   }
 
-  // CDK drop for card mode (pinned items)
+  // CDK drop for card mode (all items)
   onDrop(event: CdkDragDrop<Demanda[]>): void {
-    const pinned = [...this.pinnedForReorder];
-    moveItemInArray(pinned, event.previousIndex, event.currentIndex);
-    const orderItems = pinned.map((d, i) => ({ id: d.id, pin_order: i + 1 }));
-    this.api.put<void>('/demandas/reorder', { orderItems }).subscribe({
-      next: () => this.loadData()
-    });
+    const all = this.filteredAndSorted();
+    if (event.previousIndex === event.currentIndex) return;
+    const fromId = all[event.previousIndex]?.id;
+    const toId = all[event.currentIndex]?.id;
+    if (fromId != null && toId != null) this.applyReorder(fromId, toId);
   }
 
-  // HTML5 drag for table rows (pinned only, when canReorder)
+  // HTML5 drag for table rows (all rows)
   onRowDragStart(event: DragEvent, d: Demanda): void {
     this.dragId.set(d.id);
-    event.dataTransfer!.effectAllowed = 'move';
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 
   onRowDragOver(event: DragEvent, d: Demanda): void {
-    if (!this.canReorder) return;
     event.preventDefault();
-    this.dragOverId.set(d.id);
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    if (this.dragOverId() !== d.id) this.dragOverId.set(d.id);
   }
 
   onRowDrop(event: DragEvent, d: Demanda): void {
     event.preventDefault();
     const fromId = this.dragId();
-    if (fromId == null || fromId === d.id) { this.clearDragState(); return; }
-    const pinned = [...this.pinnedForReorder];
-    const from = pinned.findIndex(x => x.id === fromId);
-    const to = pinned.findIndex(x => x.id === d.id);
-    if (from >= 0 && to >= 0) {
-      const [moved] = pinned.splice(from, 1);
-      pinned.splice(to, 0, moved);
-      const orderItems = pinned.map((item, i) => ({ id: item.id, pin_order: i + 1 }));
-      this.api.put<void>('/demandas/reorder', { orderItems }).subscribe({
-        next: () => this.loadData()
-      });
-    }
+    if (fromId != null && fromId !== d.id) this.applyReorder(fromId, d.id);
     this.clearDragState();
   }
 
@@ -268,7 +316,7 @@ export class DemandasComponent implements OnInit {
     this.dragOverId.set(null);
   }
 
-  // Helpers
+  // ── Helpers ────────────────────────────────────────────────────────────────
   priorityClass(p: string): string {
     const map: Record<string, string> = {
       'crítica': 'b-prio-critica', 'alta': 'b-prio-alta',
