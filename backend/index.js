@@ -954,7 +954,7 @@ app.get('/api/demandas/:id', async (req, res) => {
         res.json({
             ...demandas[0],
             dependencias,
-            historico_eventos,
+            historico: historico_eventos,   // frontend expects "historico"
             demanda_mae_id: maeRow?.mae_id || null,
             demanda_mae_titulo: maeRow?.mae_titulo || null,
         });
@@ -967,18 +967,24 @@ app.get('/api/demandas/:id', async (req, res) => {
 app.get('/api/priorizacoes', async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT d.*, c.nome as coordenadoria_nome, dir.id as diretoria_id, dir.nome as diretoria_nome,
-                   u.nome as criador_nome, ur.nome as responsavel_nome, mb.nome as macro_backlog_nome
+            SELECT d.id, d.titulo, d.prioridade, d.justificativa_priorizacao, d.created_at,
+                   u.nome as criador_nome
             FROM demandas d
-            LEFT JOIN coordenadorias c ON d.coordenadoria_id = c.id
-            LEFT JOIN diretorias dir ON c.diretoria_id = dir.id
-            LEFT JOIN macro_backlogs mb ON d.macro_backlog_id = mb.id
             LEFT JOIN usuarios u ON d.criador_id = u.id
-            LEFT JOIN usuarios ur ON d.responsavel_id = ur.id
             WHERE d.flag_priorizacao_solicitada = true AND d.ativo = 1
             ORDER BY d.created_at ASC
         `);
-        res.json(rows);
+        // Map to the shape expected by the frontend Priorizacao interface
+        res.json(rows.map(r => ({
+            id: r.id,
+            demanda_id: r.id,
+            demanda_titulo: r.titulo,
+            solicitante_nome: r.criador_nome,
+            justificativa: r.justificativa_priorizacao,
+            prioridade_solicitada: r.prioridade,
+            status: 'pendente',
+            created_at: r.created_at,
+        })));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -986,22 +992,24 @@ app.get('/api/priorizacoes', async (req, res) => {
 
 app.post('/api/priorizacoes/:id/decisao', async (req, res) => {
     const demandaId = req.params.id;
-    const { diretor_id, decisao } = req.body;
+    const { diretor_id, decisao, aprovado } = req.body;
+    // frontend sends { aprovado: boolean }; legacy sends { decisao: 'aprovado' }
+    const isAprovado = aprovado === true || decisao === 'aprovado';
     try {
         await db.query('START TRANSACTION');
 
         let qs = 'UPDATE demandas SET flag_priorizacao_solicitada = false';
-        if (decisao === 'aprovado') {
+        if (isAprovado) {
             qs += ', pinned = CASE WHEN status = ? THEN false ELSE true END';
         }
         qs += ' WHERE id = ?';
 
-        const updateParams = decisao === 'aprovado' ? [STATUS_CONCLUIDA, demandaId] : [demandaId];
+        const updateParams = isAprovado ? [STATUS_CONCLUIDA, demandaId] : [demandaId];
         await db.query(qs, updateParams);
 
         await registrarEvento(db, {
             demanda_id: demandaId,
-            tipo: decisao === 'aprovado' ? 'priorizacao_aprovada' : 'priorizacao_rejeitada',
+            tipo: isAprovado ? 'priorizacao_aprovada' : 'priorizacao_rejeitada',
             usuario_id: diretor_id || null
         });
 
@@ -1019,14 +1027,15 @@ app.get('/api/dependencias', async (req, res) => {
         const [coordenadorias] = await db.query('SELECT * FROM coordenadorias');
 
         const [vinculos] = await db.query(`
-            SELECT dep.id as dependencia_id, dep.coordenadoria_id, dep.detalhes, dep.created_at,
-                   dep.demanda_filha_id,
-                   d.id as demanda_id, d.titulo, d.prioridade, d.status, d.pinned,
-                   c2.nome as area_origem_nome,
-                   df.titulo as filha_titulo, df.status as filha_status, df.ativo as filha_ativo
+            SELECT dep.id, dep.coordenadoria_id, dep.detalhes, dep.created_at,
+                   dep.demanda_filha_id, dep.status,
+                   d.id as demanda_id, d.titulo as demanda_titulo, d.prioridade,
+                   c2.nome as coordenadoria_nome,
+                   ur.nome as responsavel_nome
             FROM dependencias dep
             JOIN demandas d ON dep.demanda_id = d.id AND d.ativo = 1
             LEFT JOIN coordenadorias c2 ON d.coordenadoria_id = c2.id
+            LEFT JOIN usuarios ur ON d.responsavel_id = ur.id
             LEFT JOIN demandas df ON dep.demanda_filha_id = df.id
             WHERE dep.status = 'pendente'
             ORDER BY dep.coordenadoria_id
@@ -1036,9 +1045,9 @@ app.get('/api/dependencias', async (req, res) => {
             .map(coord => ({
                 coordenadoria_id: coord.id,
                 coordenadoria_nome: coord.nome,
-                demandas: vinculos.filter(v => v.coordenadoria_id === coord.id)
+                dependencias: vinculos.filter(v => v.coordenadoria_id === coord.id)
             }))
-            .filter(g => g.demandas.length > 0);
+            .filter(g => g.dependencias.length > 0);
 
         res.json(grouped);
     } catch (err) {

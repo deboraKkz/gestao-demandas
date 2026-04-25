@@ -27,7 +27,7 @@
           type="text"
           placeholder="Pesquise por ID ou título..."
           [ngModel]="searchText()"
-          (ngModelChange)="searchText.set($event); currentPage.set(1)" />
+          (ngModelChange)="searchText.set($event)" />
       </div>
 
       <div class="dem-view-toggle">
@@ -154,7 +154,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let d of pagedDemandas(); trackBy: trackById"
+            <tr *ngFor="let d of filteredAndSorted(); trackBy: trackById"
               [class.row-pinned]="d.pinned"
               [class.row-completed]="isCompleted(d)"
               [class.is-dragging]="dragId() === d.id"
@@ -179,7 +179,7 @@
               </td>
 
               <!-- ID (pinned items get a left border via CSS) -->
-              <td><span class="id-chip" [class.id-chip-pinned]="d.pinned">#{{ d.id }}</span></td>
+              <td><span class="id-chip" [class.id-chip-pinned]="d.pinned">{{ d.id }}</span></td>
 
               <!-- Data entrada -->
               <td class="cell-muted cell-nowrap">{{ fmtDate(d.created_at) }}</td>
@@ -282,22 +282,6 @@
         </table>
       </div>
 
-      <!-- Pagination -->
-      <div class="dem-pagination" *ngIf="filteredAndSorted().length > perPage">
-        <span>
-          Mostrando {{ (currentPage()-1)*perPage + 1 }}–{{ currentPage()*perPage > filteredAndSorted().length ? filteredAndSorted().length : currentPage()*perPage }}
-          de {{ filteredAndSorted().length }}
-        </span>
-        <div class="pag-nav">
-          <button class="pag-btn" [disabled]="currentPage() === 1" (click)="prevPage()">‹</button>
-          <button
-            *ngFor="let n of pageNumbers(); trackBy: trackByNum"
-            class="pag-btn"
-            [class.active]="n === currentPage()"
-            (click)="currentPage.set(n)">{{ n }}</button>
-          <button class="pag-btn" [disabled]="currentPage() === totalPages()" (click)="nextPage()">›</button>
-        </div>
-      </div>
     </ng-container>
 
     <!-- ── CARD VIEW ───────────────────────────────────────── -->
@@ -330,7 +314,7 @@
 
               <div class="dem-card-body">
                 <div class="dem-card-row">
-                  <span class="id-chip" [class.id-chip-pinned]="d.pinned">#{{ d.id }}</span>
+                  <span class="id-chip" [class.id-chip-pinned]="d.pinned">{{ d.id }}</span>
                   <div class="dem-card-title">
                     <a [routerLink]="['/demandas', d.id]">{{ d.titulo }}</a>
                   </div>
