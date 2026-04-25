@@ -25,7 +25,7 @@
           <div class="dep-card-main">
             <div class="dep-card-title-row">
               <div class="dep-card-title-group">
-                <span class="demand-id-badge">#{{ dep.demanda_id }}</span>
+                <span class="demand-id-badge">{{ dep.demanda_id }}</span>
                 <span class="dep-card-titulo">{{ dep.demanda_titulo }}</span>
               </div>
               <div class="dep-card-badges">
@@ -45,7 +45,7 @@
             <p *ngIf="dep.detalhes" class="dep-card-detalhes">{{ dep.detalhes }}</p>
 
             <div *ngIf="dep.demanda_filha_id" class="dep-card-filha" [routerLink]="['/demandas', dep.demanda_filha_id]">
-              ↳ Demanda filha #{{ dep.demanda_filha_id }}
+              ↳ Demanda filha {{ dep.demanda_filha_id }}
             </div>
           </div>
 

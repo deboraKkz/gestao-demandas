@@ -11,12 +11,12 @@
   <!-- Header -->
   <div class="detail-header">
     <div class="detail-header-meta">
-      <span class="detail-eyebrow">#{{ demanda()!.id }}</span>
+      <span class="detail-eyebrow">{{ demanda()!.id }}</span>
       <span class="detail-eyebrow-sep">·</span>
       <span class="detail-eyebrow">{{ demanda()!.coordenadoria_nome }}</span>
       <span *ngIf="demanda()!.demanda_mae_id" class="detail-eyebrow-sep">·</span>
       <button *ngIf="demanda()!.demanda_mae_id" class="detail-mae-badge" (click)="navigateToMae()">
-        ↑ Demanda mãe #{{ demanda()!.demanda_mae_id }}
+        ↑ Demanda mãe {{ demanda()!.demanda_mae_id }}
       </button>
     </div>
     <h2>{{ demanda()!.titulo }}</h2>
@@ -189,7 +189,7 @@
         </div>
         <p *ngIf="dep.detalhes">{{ dep.detalhes }}</p>
         <div *ngIf="dep.demanda_filha_id" class="dep-filha-link" style="cursor:pointer" [routerLink]="['/demandas', dep.demanda_filha_id]">
-          ↳ Demanda filha #{{ dep.demanda_filha_id }}
+          ↳ Demanda filha {{ dep.demanda_filha_id }}
         </div>
       </div>
     </div>
